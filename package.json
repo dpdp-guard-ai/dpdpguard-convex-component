@@ -1,0 +1,38 @@
+{
+  "name": "@dpdpguard/convex",
+  "version": "0.1.0",
+  "description": "Convex Component for dpdpbot (DPDP Guard) - native Convex integration over the dpdpbot /api/v1 contract",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./convex.config": {
+      "types": "./dist/component/convex.config.d.ts",
+      "default": "./dist/component/convex.config.js"
+    },
+    "./http": {
+      "types": "./dist/component/http.d.ts",
+      "default": "./dist/component/http.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "convex": "^1.16.0"
+  },
+  "devDependencies": {
+    "convex": "^1.16.0",
+    "convex-test": "^0.0.32",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
