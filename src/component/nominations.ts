@@ -34,10 +34,21 @@ export const _upsert = internalMutation({
 });
 
 export const upsert = action({
-  args: { externalId: v.string(), nominee: v.any() },
+  args: {
+    externalId: v.string(),
+    nomineeName: v.string(),
+    nomineeContact: v.string(),
+  },
   handler: async (ctx, args) => {
     const config = await ctx.runQuery(internal.config.get);
-    const result = await dpdpClient.upsertNomination(config, args);
+    const accessToken = await ctx.runQuery(
+      internal.consent._requireAccessToken,
+      { externalId: args.externalId },
+    );
+    const result = await dpdpClient.upsertNomination(config, accessToken, {
+      nomineeName: args.nomineeName,
+      nomineeContact: args.nomineeContact,
+    });
     await ctx.runMutation(internal.nominations._upsert, {
       externalId: args.externalId,
       status: "active",
@@ -51,7 +62,11 @@ export const revoke = action({
   args: { externalId: v.string() },
   handler: async (ctx, { externalId }) => {
     const config = await ctx.runQuery(internal.config.get);
-    const result = await dpdpClient.revokeNomination(config, externalId);
+    const accessToken = await ctx.runQuery(
+      internal.consent._requireAccessToken,
+      { externalId },
+    );
+    const result = await dpdpClient.revokeNomination(config, accessToken);
     await ctx.runMutation(internal.nominations._upsert, {
       externalId,
       status: "revoked",

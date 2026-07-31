@@ -9,7 +9,7 @@ export const setup = mutation({
   args: {
     baseUrl: v.string(),
     apiKey: v.string(),
-    orgId: v.optional(v.string()),
+    orgId: v.string(),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.query("config").first();

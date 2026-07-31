@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { httpAction, internalMutation, internalQuery } from "./_generated/server";
+import {
+  httpAction,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import { verifyWebhookSignature } from "./_lib/dpdpClient";
 
@@ -21,13 +25,33 @@ export const _markSeen = internalMutation({
   },
 });
 
-// dpdpbot's webhook secret is configured separately from the API key -
-// signing secrets and bearer credentials should not be the same value.
-// Stored via config.setup's `webhookSecret` field is left as a TODO until
-// dpdpbot's webhook contract is finalized; for now this expects the host
-// app to pass it through an environment variable.
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(input),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// dpdpbot's webhook secret is per-endpoint (convex/webhooks.ts's
+// `webhookEndpoints.secret`), configured separately from the service API
+// key - signing secrets and bearer credentials should not be the same
+// value. Expects the host app to pass it through an environment variable
+// until config.setup() grows a dedicated field for it.
+//
+// dpdpbot's actual webhook envelope (convex/webhooks.ts's
+// postSignedWebhookPayload) is `{ eventType, organizationId, payload,
+// timestamp }` - there is no event id, and as of writing the only events
+// it actually dispatches are "consent.given" and "consent.withdrawn"
+// (convex/consentApi.ts, convex/consents.ts), org-scoped with no
+// per-principal externalId in the payload. DSR/grievance/nomination
+// updates are NOT delivered via webhook today - dsr.refresh() and
+// grievances.refresh() (polled by crons.ts) are the only sync path for
+// those until dpdpbot ships principal-scoped lifecycle webhooks.
 export const receive = httpAction(async (ctx, request) => {
-  const signature = request.headers.get("dpdpbot-signature");
+  const signature = request.headers.get("X-DPDP-Signature");
   const rawBody = await request.text();
   const secret = process.env.DPDPGUARD_WEBHOOK_SECRET;
 
@@ -40,48 +64,27 @@ export const receive = httpAction(async (ctx, request) => {
     return new Response("invalid signature", { status: 401 });
   }
 
-  const event = JSON.parse(rawBody);
-
+  const eventId = await sha256Hex(rawBody);
   const alreadySeen = await ctx.runQuery(internal.webhooks._seen, {
-    eventId: event.id,
+    eventId,
   });
   if (alreadySeen) {
     return new Response("ok", { status: 200 });
   }
 
-  switch (event.type) {
-    case "dsr.updated":
-      await ctx.runMutation(internal.dsr._upsert, {
-        externalId: event.data.externalId,
-        dpdpbotId: event.data.id,
-        type: event.data.type,
-        status: event.data.status,
-      });
-      break;
-    case "grievance.updated":
-      await ctx.runMutation(internal.grievances._upsert, {
-        externalId: event.data.externalId,
-        dpdpbotId: event.data.id,
-        status: event.data.status,
-      });
-      break;
-    case "nomination.revoked":
-      await ctx.runMutation(internal.nominations._upsert, {
-        externalId: event.data.externalId,
-        status: "revoked",
-        payload: event.data,
-      });
-      break;
-    default:
-      // Unrecognized event types are acknowledged, not rejected, so
-      // dpdpbot doesn't retry-storm on a webhook contract addition this
-      // component hasn't been updated for yet.
-      break;
-  }
+  const event = JSON.parse(rawBody) as {
+    eventType: string;
+    organizationId: string;
+    payload: unknown;
+    timestamp: number;
+  };
 
+  // Nothing to cache yet - see the comment above. Recording that the event
+  // arrived (webhookEvents) is what lets a host app add handling here
+  // later without re-plumbing idempotency.
   await ctx.runMutation(internal.webhooks._markSeen, {
-    eventId: event.id,
-    type: event.type,
+    eventId,
+    type: event.eventType,
   });
 
   return new Response("ok", { status: 200 });

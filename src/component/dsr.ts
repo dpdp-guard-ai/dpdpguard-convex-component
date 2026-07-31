@@ -41,18 +41,58 @@ export const _upsert = internalMutation({
 export const create = action({
   args: {
     externalId: v.string(),
-    type: v.string(),
-    details: v.optional(v.any()),
+    type: v.union(
+      v.literal("summary"),
+      v.literal("processors"),
+      v.literal("correction"),
+      v.literal("erasure"),
+    ),
+    details: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const config = await ctx.runQuery(internal.config.get);
-    const result = await dpdpClient.createDsrRequest(config, args);
+    const accessToken = await ctx.runQuery(
+      internal.consent._requireAccessToken,
+      { externalId: args.externalId },
+    );
+    const result = await dpdpClient.createDsrRequest(
+      config,
+      accessToken,
+      { type: args.type, details: args.details },
+      args.idempotencyKey,
+    );
     await ctx.runMutation(internal.dsr._upsert, {
       externalId: args.externalId,
-      dpdpbotId: result.id,
-      type: args.type,
+      dpdpbotId: result.requestId,
+      type: result.type,
       status: result.status,
     });
     return result;
+  },
+});
+
+// Refreshes the caller's own DSR requests from dpdpbot - the reconciliation
+// fallback for missed webhook deliveries (see crons.ts).
+export const refresh = action({
+  args: { externalId: v.string() },
+  handler: async (ctx, { externalId }) => {
+    const config = await ctx.runQuery(internal.config.get);
+    const accessToken = await ctx.runQuery(
+      internal.consent._requireAccessToken,
+      { externalId },
+    );
+    const { requests } = await dpdpClient.listDsrRequestsForCurrentUser(
+      config,
+      accessToken,
+    );
+    for (const r of requests) {
+      await ctx.runMutation(internal.dsr._upsert, {
+        externalId,
+        dpdpbotId: r.requestId,
+        type: r.type,
+        status: r.status,
+      });
+    }
   },
 });

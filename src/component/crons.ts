@@ -13,4 +13,14 @@ crons.interval(
   internal.notices.refresh,
 );
 
+// DSR/grievance updates aren't pushed via webhook today (see webhooks.ts) -
+// this is the only sync path for them until dpdpbot ships principal-scoped
+// lifecycle webhooks. O(linked principals) per run; fine at small scale,
+// worth revisiting before this component is used with a large user base.
+crons.interval(
+  "reconcile linked principals' DSR/grievance state",
+  { minutes: 30 },
+  internal.reconcile.principals,
+);
+
 export default crons;

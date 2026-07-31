@@ -1,100 +1,223 @@
-// Minimal fetch wrapper over dpdpbot's /api/v1. Kept dependency-free (no
-// node runtime, no @dpdpguard/contract types wired in yet) so the component
-// runs in Convex's default V8 action runtime. Once @dpdpguard/contract
-// publishes generated request/response types, swap the `any`s here for
-// those types - do not hand-maintain a second copy of them.
+import type { components } from "../generated/api-types.js";
+import { DpdpGuardApiError } from "./errorCatalog.js";
 
-export class DpdpGuardApiError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly code: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = "DpdpGuardApiError";
-  }
-}
+export type OrgSummary = components["schemas"]["OrgSummary"];
+export type Notice = components["schemas"]["Notice"];
+export type DsrRequest = components["schemas"]["DsrRequest"];
+export type Grievance = components["schemas"]["Grievance"];
+export type Nomination = components["schemas"]["Nomination"];
 
 export type DpdpConfig = {
   baseUrl: string;
   apiKey: string;
+  orgId: string;
 };
 
-async function request(
+type AuthMode = "none" | "apiKey" | "bearer";
+
+type RequestOptions = {
+  body?: unknown;
+  auth: AuthMode;
+  accessToken?: string;
+  headers?: Record<string, string>;
+};
+
+// Mirrors @dpdpguard/server's DpdpGuardClient request/response handling
+// (same ApiError {code, error} shape, same non-2xx -> DpdpGuardApiError
+// mapping) so both SDKs behave identically against the same wire contract.
+async function request<T>(
   config: DpdpConfig,
   method: string,
   path: string,
-  body?: unknown,
-): Promise<any> {
-  const res = await fetch(`${config.baseUrl}${path}`, {
-    method,
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${config.apiKey}`,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  options: RequestOptions,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
 
-  const payload = res.status === 204 ? null : await res.json();
-
-  if (!res.ok) {
-    throw new DpdpGuardApiError(
-      res.status,
-      payload?.code ?? "unknown_error",
-      payload?.message ?? `dpdpbot request failed with status ${res.status}`,
-    );
+  if (options.auth === "apiKey") {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+  } else if (options.auth === "bearer") {
+    if (!options.accessToken) {
+      throw new Error(
+        "dpdpguard: this call requires a brokered principal access token - call dpdp.brokerToken() first.",
+      );
+    }
+    headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-  return payload;
+  const init: RequestInit = { method, headers };
+  if (options.body !== undefined) {
+    init.body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(`${config.baseUrl}${path}`, init);
+  const text = await response.text();
+  const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
+
+  if (!response.ok) {
+    const code =
+      json && typeof json === "object" && "code" in json
+        ? String((json as { code: unknown }).code)
+        : "VALIDATION_ERROR";
+    const message =
+      json && typeof json === "object" && "error" in json
+        ? String((json as { error: unknown }).error)
+        : `dpdpbot request failed with status ${response.status}`;
+    throw new DpdpGuardApiError(code, message, response.status);
+  }
+
+  return json as T;
 }
 
 export const dpdpClient = {
-  getNotices: (config: DpdpConfig) => request(config, "GET", "/notices"),
-  getBannerConfig: (config: DpdpConfig) =>
-    request(config, "GET", "/banner-config"),
+  // --- Public reads (no auth) ---
+
+  getOrgBySlug: (config: DpdpConfig, slug: string) =>
+    request<OrgSummary>(
+      config,
+      "GET",
+      `/api/v1/org/${encodeURIComponent(slug)}`,
+      { auth: "none" },
+    ),
+
+  getNoticesForOrg: (config: DpdpConfig, orgId: string) =>
+    request<{ notices: Notice[] }>(
+      config,
+      "GET",
+      `/api/v1/org/${encodeURIComponent(orgId)}/notices`,
+      { auth: "none" },
+    ),
+
+  getBannerConfig: (
+    config: DpdpConfig,
+    orgId: string,
+    scope?: { domain?: string; appId?: string },
+  ) => {
+    const query = new URLSearchParams();
+    if (scope?.domain) query.set("domain", scope.domain);
+    if (scope?.appId) query.set("appId", scope.appId);
+    const qs = query.toString();
+    return request<{ configVersion: number }>(
+      config,
+      "GET",
+      `/api/v1/org/${encodeURIComponent(orgId)}/banner-config${qs ? `?${qs}` : ""}`,
+      { auth: "none" },
+    );
+  },
+
+  // --- Token broker (ADR-004): apiKey mints a principal bearer token ---
+
   brokerToken: (config: DpdpConfig, externalId: string) =>
-    request(config, "POST", "/consent/broker-token", { externalId }),
-  linkAnonymousConsent: (config: DpdpConfig, args: unknown) =>
-    request(config, "POST", "/consent/link", args),
-  listDsrRequests: (config: DpdpConfig, externalId: string) =>
-    request(
+    request<{ accessToken: string; expiresAt: number; tokenType: "Bearer" }>(
+      config,
+      "POST",
+      "/api/v1/auth/broker-token",
+      { body: { externalId }, auth: "apiKey" },
+    ),
+
+  // --- Everything below requires the brokered principal accessToken ---
+
+  linkAnonymousConsent: (
+    config: DpdpConfig,
+    accessToken: string,
+    anonymousId: string,
+  ) =>
+    request<{
+      linkedCount: number;
+      needsReconsent: { noticeId: string; purpose: string }[];
+    }>(config, "POST", "/api/v1/link-anonymous-consent", {
+      body: { anonymousId },
+      auth: "bearer",
+      accessToken,
+    }),
+
+  listDsrRequestsForCurrentUser: (config: DpdpConfig, accessToken: string) =>
+    request<{ requests: DsrRequest[] }>(config, "GET", "/api/v1/dsr", {
+      auth: "bearer",
+      accessToken,
+    }),
+
+  createDsrRequest: (
+    config: DpdpConfig,
+    accessToken: string,
+    input: {
+      type: "summary" | "processors" | "correction" | "erasure";
+      details?: string;
+    },
+    idempotencyKey?: string,
+  ) =>
+    request<DsrRequest>(config, "POST", "/api/v1/dsr", {
+      body: { organizationId: config.orgId, ...input },
+      auth: "bearer",
+      accessToken,
+      headers: idempotencyKey
+        ? { "Idempotency-Key": idempotencyKey }
+        : undefined,
+    }),
+
+  listGrievancesForCurrentUser: (config: DpdpConfig, accessToken: string) =>
+    request<{ grievances: Grievance[] }>(
       config,
       "GET",
-      `/dsr?externalId=${encodeURIComponent(externalId)}`,
+      "/api/v1/grievances",
+      { auth: "bearer", accessToken },
     ),
-  createDsrRequest: (config: DpdpConfig, args: unknown) =>
-    request(config, "POST", "/dsr", args),
-  listGrievances: (config: DpdpConfig, externalId: string) =>
-    request(
-      config,
-      "GET",
-      `/grievances?externalId=${encodeURIComponent(externalId)}`,
-    ),
-  createGrievance: (config: DpdpConfig, args: unknown) =>
-    request(config, "POST", "/grievances", args),
-  getNomination: (config: DpdpConfig, externalId: string) =>
-    request(
-      config,
-      "GET",
-      `/nominations/${encodeURIComponent(externalId)}`,
-    ),
-  upsertNomination: (config: DpdpConfig, args: unknown) =>
-    request(config, "PUT", "/nominations", args),
-  revokeNomination: (config: DpdpConfig, externalId: string) =>
-    request(
-      config,
-      "DELETE",
-      `/nominations/${encodeURIComponent(externalId)}`,
-    ),
+
+  createGrievance: (
+    config: DpdpConfig,
+    accessToken: string,
+    input: { subject: string; description: string },
+  ) =>
+    request<Grievance>(config, "POST", "/api/v1/grievances", {
+      body: { organizationId: config.orgId, ...input },
+      auth: "bearer",
+      accessToken,
+    }),
+
+  getNomination: (config: DpdpConfig, accessToken: string) =>
+    request<Nomination | null>(config, "GET", "/api/v1/nomination", {
+      auth: "bearer",
+      accessToken,
+    }),
+
+  upsertNomination: (
+    config: DpdpConfig,
+    accessToken: string,
+    input: { nomineeName: string; nomineeContact: string },
+  ) =>
+    request<Nomination>(config, "PUT", "/api/v1/nomination", {
+      body: input,
+      auth: "bearer",
+      accessToken,
+    }),
+
+  revokeNomination: (config: DpdpConfig, accessToken: string) =>
+    request<{ revoked: boolean }>(config, "DELETE", "/api/v1/nomination", {
+      auth: "bearer",
+      accessToken,
+    }),
 };
 
-// Web Crypto based port of the Node SDK's verifyWebhookSignature, so this
-// component never needs the "use node" action runtime.
+export { DpdpGuardApiError };
+
+// Verifies dpdpbot's `X-DPDP-Signature` header (convex/webhooks.ts's
+// deliverToEndpoint: HMAC-SHA256 over the raw JSON body, hex-encoded, using
+// the webhook endpoint's own secret - not the service API key). Ported to
+// Web Crypto rather than node:crypto so this component never needs the
+// "use node" action runtime.
+//
+// `rawBody` must be the exact bytes received on the wire, before any
+// JSON.parse - HMACs are sensitive to whitespace/key order, so
+// re-serializing a parsed object and hashing that will not match.
 export async function verifyWebhookSignature(
   secret: string,
   rawBody: string,
-  signatureHeader: string,
+  signatureHeader: string | null | undefined,
 ): Promise<boolean> {
+  if (!signatureHeader) return false;
+
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
