@@ -99,7 +99,7 @@ npm run build
 
 ## Known gaps
 
-- Request/response types in `_lib/dpdpClient.ts` are hand-typed (`any`-heavy). Once `@dpdpguard/contract` publishes generated types, those should replace the hand-typed shapes here — do not let this drift into a second hand-maintained copy of the contract.
+- Request/response types in `_lib/dpdpClient.ts` are hand-typed (`any`-heavy). `@dpdpguard/contract` is already published and accessible — wiring its generated types into `dpdpClient.ts` (replacing the hand-typed shapes) is the immediate next step, not a future one. Do not let this drift into a second hand-maintained copy of the contract.
 - Only `notices.refresh` has a reconciliation cron wired up. DSR/grievance/nomination reconciliation (for missed webhook deliveries) is not yet implemented — webhook delivery is currently the only sync path for those tables.
 - Webhook signature verification expects `DPDPGUARD_WEBHOOK_SECRET` as a host app environment variable; there's no `config.setup()` field for it yet, and dpdpbot's webhook signing contract (header name, algorithm) should be confirmed against the real implementation before relying on this in production.
 - No tests yet. `convex-test` is listed as a devDependency; component behavior (especially the webhook idempotency path) should be covered before this is used for anything beyond a proof of concept.
