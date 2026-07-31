@@ -22,12 +22,17 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p .",
-    "typecheck": "tsc -p . --noEmit",
+    "codegen": "node scripts/codegen.mjs",
+    "postinstall": "node scripts/codegen.mjs",
+    "build": "npm run codegen && tsc -p .",
+    "typecheck": "npm run codegen && tsc -p . --noEmit",
     "test": "vitest run"
   },
   "peerDependencies": {
     "convex": "^1.16.0"
+  },
+  "dependencies": {
+    "@dpdpguard/contract": "^1.0.1"
   },
   "devDependencies": {
     "convex": "^1.16.0",

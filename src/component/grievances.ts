@@ -45,12 +45,43 @@ export const create = action({
   },
   handler: async (ctx, args) => {
     const config = await ctx.runQuery(internal.config.get);
-    const result = await dpdpClient.createGrievance(config, args);
+    const accessToken = await ctx.runQuery(
+      internal.consent._requireAccessToken,
+      { externalId: args.externalId },
+    );
+    const result = await dpdpClient.createGrievance(config, accessToken, {
+      subject: args.subject,
+      description: args.description,
+    });
     await ctx.runMutation(internal.grievances._upsert, {
       externalId: args.externalId,
-      dpdpbotId: result.id,
+      dpdpbotId: result.grievanceId,
       status: result.status,
     });
     return result;
+  },
+});
+
+// Refreshes the caller's own grievances from dpdpbot - the reconciliation
+// fallback for missed webhook deliveries (see crons.ts).
+export const refresh = action({
+  args: { externalId: v.string() },
+  handler: async (ctx, { externalId }) => {
+    const config = await ctx.runQuery(internal.config.get);
+    const accessToken = await ctx.runQuery(
+      internal.consent._requireAccessToken,
+      { externalId },
+    );
+    const { grievances } = await dpdpClient.listGrievancesForCurrentUser(
+      config,
+      accessToken,
+    );
+    for (const g of grievances) {
+      await ctx.runMutation(internal.grievances._upsert, {
+        externalId,
+        dpdpbotId: g.grievanceId,
+        status: g.status,
+      });
+    }
   },
 });

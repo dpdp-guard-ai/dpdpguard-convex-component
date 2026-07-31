@@ -9,7 +9,7 @@ export class DpdpGuard {
 
   configure(
     ctx: GenericMutationCtx<any>,
-    args: { baseUrl: string; apiKey: string; orgId?: string },
+    args: { baseUrl: string; apiKey: string; orgId: string },
   ) {
     return ctx.runMutation(this.component.config.setup, args);
   }
@@ -39,7 +39,12 @@ export class DpdpGuard {
 
   createDsrRequest(
     ctx: GenericActionCtx<any>,
-    args: { externalId: string; type: string; details?: unknown },
+    args: {
+      externalId: string;
+      type: "summary" | "processors" | "correction" | "erasure";
+      details?: string;
+      idempotencyKey?: string;
+    },
   ) {
     return ctx.runAction(this.component.dsr.create, args);
   }
@@ -61,7 +66,7 @@ export class DpdpGuard {
 
   upsertNomination(
     ctx: GenericActionCtx<any>,
-    args: { externalId: string; nominee: unknown },
+    args: { externalId: string; nomineeName: string; nomineeContact: string },
   ) {
     return ctx.runAction(this.component.nominations.upsert, args);
   }

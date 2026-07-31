@@ -53,8 +53,8 @@ export const refresh = action({
   handler: async (ctx) => {
     const config = await ctx.runQuery(internal.config.get);
     const [notices, bannerConfig] = await Promise.all([
-      dpdpClient.getNotices(config),
-      dpdpClient.getBannerConfig(config),
+      dpdpClient.getNoticesForOrg(config, config.orgId),
+      dpdpClient.getBannerConfig(config, config.orgId),
     ]);
     await ctx.runMutation(internal.notices._upsert, {
       kind: "notices",
