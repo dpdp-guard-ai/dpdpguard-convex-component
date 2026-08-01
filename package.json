@@ -28,7 +28,10 @@
     "typecheck": "npm run codegen && tsc -p . --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
     "convex": "^1.43.0"
@@ -41,6 +44,8 @@
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/ui": "^4.1.10",
     "convex": "^1.43.0",
     "convex-test": "^0.0.54",
     "eslint": "^10.8.0",
