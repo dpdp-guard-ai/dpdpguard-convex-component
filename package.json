@@ -28,10 +28,10 @@
     "typecheck": "npm run codegen && tsc -p . --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test": "npm run codegen && vitest run",
+    "test:watch": "npm run codegen && vitest",
+    "test:ui": "npm run codegen && vitest --ui",
+    "test:coverage": "npm run codegen && vitest run --coverage"
   },
   "peerDependencies": {
     "convex": "^1.43.0"

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +34,48 @@ if (!existsSync(specPath)) {
 		`codegen: ${specPath} not found — is @dpdpguard/contract installed? Run npm install first.`,
 	);
 	process.exit(1);
+}
+
+const generatedDir = join(repoRoot, "src", "component", "_generated");
+if (!existsSync(generatedDir)) {
+	mkdirSync(generatedDir, { recursive: true });
+}
+
+const serverTsPath = join(generatedDir, "server.ts");
+if (!existsSync(serverTsPath)) {
+	writeFileSync(
+		serverTsPath,
+		`import {
+  queryGeneric,
+  mutationGeneric,
+  actionGeneric,
+  internalQueryGeneric,
+  internalMutationGeneric,
+  internalActionGeneric,
+  httpActionGeneric,
+} from 'convex/server';
+
+export const query = queryGeneric;
+export const mutation = mutationGeneric;
+export const action = actionGeneric;
+export const internalQuery = internalQueryGeneric;
+export const internalMutation = internalMutationGeneric;
+export const internalAction = internalActionGeneric;
+export const httpAction = httpActionGeneric;
+`,
+	);
+}
+
+const apiTsPath = join(generatedDir, "api.ts");
+if (!existsSync(apiTsPath)) {
+	writeFileSync(
+		apiTsPath,
+		`import { anyApi } from 'convex/server';
+
+export const api = anyApi;
+export const internal = anyApi;
+`,
+	);
 }
 
 const result = spawnSync(
