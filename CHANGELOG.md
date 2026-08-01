@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-01
+
+### Added
+
+- **Component Integration Tests**: Added full test suites for Convex component modules (`config`, `consent`, `dsr`, `grievances`, `nominations`, `notices`, `webhooks`) using `convex-test`.
+- **CI Test Reliability**: Enhanced `scripts/codegen.mjs` to auto-generate `_generated` module stubs, enabling tests to pass cleanly in headless CI environments without requiring prior `npx convex dev`.
+- **Coverage Thresholds**: Set non-zero test coverage thresholds in `vitest.config.ts` (Lines: 55%, Functions: 60%, Statements: 55%, Branches: 25%).
+
+### Fixed
+
+- Fixed ESLint parsing errors for root configuration files and added `src/component/_generated/**` to ESLint ignore patterns.
+- Resolved `@typescript-eslint/unbound-method` false positives in test mock references.
+
 ## [0.2.0] - 2026-08-01
 
 ### Added
