@@ -4,3 +4,4 @@ dist/
 .DS_Store
 **/_generated/
 src/component/generated/
+coverage/
