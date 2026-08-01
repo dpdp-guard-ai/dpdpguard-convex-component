@@ -1,19 +1,14 @@
-import { v } from "convex/values";
-import {
-  action,
-  query,
-  internalMutation,
-  internalQuery,
-} from "./_generated/server";
-import { internal } from "./_generated/api";
-import { dpdpClient } from "./_lib/dpdpClient";
+import { v } from 'convex/values';
+import { action, query, internalMutation, internalQuery } from './_generated/server';
+import { internal } from './_generated/api';
+import { dpdpClient } from './_lib/dpdpClient';
 
 export const getLink = query({
   args: { externalId: v.string() },
   handler: async (ctx, { externalId }) => {
     return await ctx.db
-      .query("consentLinks")
-      .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
+      .query('consentLinks')
+      .withIndex('by_externalId', (q) => q.eq('externalId', externalId))
       .first();
   },
 });
@@ -23,18 +18,18 @@ export const _upsertLink = internalMutation({
     externalId: v.string(),
     accessToken: v.string(),
     expiresAt: v.number(),
-    status: v.union(v.literal("linked"), v.literal("revoked")),
+    status: v.union(v.literal('linked'), v.literal('revoked')),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
-      .query("consentLinks")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .query('consentLinks')
+      .withIndex('by_externalId', (q) => q.eq('externalId', args.externalId))
       .first();
     const row = { ...args, linkedAt: Date.now() };
     if (existing) {
       await ctx.db.patch(existing._id, row);
     } else {
-      await ctx.db.insert("consentLinks", row);
+      await ctx.db.insert('consentLinks', row);
     }
   },
 });
@@ -47,17 +42,17 @@ export const _requireAccessToken = internalQuery({
   args: { externalId: v.string() },
   handler: async (ctx, { externalId }) => {
     const link = await ctx.db
-      .query("consentLinks")
-      .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
+      .query('consentLinks')
+      .withIndex('by_externalId', (q) => q.eq('externalId', externalId))
       .first();
-    if (!link || link.status !== "linked") {
+    if (!link || link.status !== 'linked') {
       throw new Error(
-        `dpdpguard: no brokered access token for externalId "${externalId}" - call dpdp.brokerToken() first.`,
+        `dpdpguard: no brokered access token for externalId "${externalId}" - call dpdp.brokerToken() first.`
       );
     }
     if (link.expiresAt <= Date.now()) {
       throw new Error(
-        `dpdpguard: the brokered access token for externalId "${externalId}" has expired - call dpdp.brokerToken() again to re-broker.`,
+        `dpdpguard: the brokered access token for externalId "${externalId}" has expired - call dpdp.brokerToken() again to re-broker.`
       );
     }
     return link.accessToken;
@@ -73,7 +68,7 @@ export const broker = action({
       externalId,
       accessToken: result.accessToken,
       expiresAt: result.expiresAt,
-      status: "linked",
+      status: 'linked',
     });
     return result;
   },
@@ -83,14 +78,9 @@ export const linkAnonymous = action({
   args: { anonymousId: v.string(), externalId: v.string() },
   handler: async (ctx, args) => {
     const config = await ctx.runQuery(internal.config.get);
-    const accessToken = await ctx.runQuery(
-      internal.consent._requireAccessToken,
-      { externalId: args.externalId },
-    );
-    return await dpdpClient.linkAnonymousConsent(
-      config,
-      accessToken,
-      args.anonymousId,
-    );
+    const accessToken = await ctx.runQuery(internal.consent._requireAccessToken, {
+      externalId: args.externalId,
+    });
+    return await dpdpClient.linkAnonymousConsent(config, accessToken, args.anonymousId);
   },
 });

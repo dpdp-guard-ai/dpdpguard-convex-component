@@ -26,18 +26,29 @@
     "postinstall": "node scripts/codegen.mjs",
     "build": "npm run codegen && tsc -p .",
     "typecheck": "npm run codegen && tsc -p . --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "vitest run"
   },
   "peerDependencies": {
-    "convex": "^1.16.0"
+    "convex": "^1.43.0"
   },
   "dependencies": {
-    "@dpdpguard/contract": "^1.0.1"
+    "@dpdpguard/contract": "^1.2.0"
   },
   "devDependencies": {
-    "convex": "^1.16.0",
-    "convex-test": "^0.0.32",
-    "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
+    "@eslint/js": "^9.16.0",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "convex": "^1.43.0",
+    "convex-test": "^0.0.54",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "globals": "^15.15.0",
+    "prettier": "^3.4.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

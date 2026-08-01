@@ -1,4 +1,4 @@
-import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from "convex/server";
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server';
 
 // Mirrors @dpdpguard/server's DpdpGuardClient method names 1:1 so porting
 // app code off the Node SDK is close to a search-and-replace. `component`
@@ -9,7 +9,7 @@ export class DpdpGuard {
 
   configure(
     ctx: GenericMutationCtx<any>,
-    args: { baseUrl: string; apiKey: string; orgId: string },
+    args: { baseUrl: string; apiKey: string; orgId: string }
   ) {
     return ctx.runMutation(this.component.config.setup, args);
   }
@@ -28,7 +28,7 @@ export class DpdpGuard {
 
   linkAnonymousConsent(
     ctx: GenericActionCtx<any>,
-    args: { anonymousId: string; externalId: string },
+    args: { anonymousId: string; externalId: string }
   ) {
     return ctx.runAction(this.component.consent.linkAnonymous, args);
   }
@@ -41,10 +41,10 @@ export class DpdpGuard {
     ctx: GenericActionCtx<any>,
     args: {
       externalId: string;
-      type: "summary" | "processors" | "correction" | "erasure";
+      type: 'summary' | 'processors' | 'correction' | 'erasure';
       details?: string;
       idempotencyKey?: string;
-    },
+    }
   ) {
     return ctx.runAction(this.component.dsr.create, args);
   }
@@ -55,7 +55,7 @@ export class DpdpGuard {
 
   createGrievance(
     ctx: GenericActionCtx<any>,
-    args: { externalId: string; subject: string; description: string },
+    args: { externalId: string; subject: string; description: string }
   ) {
     return ctx.runAction(this.component.grievances.create, args);
   }
@@ -66,7 +66,7 @@ export class DpdpGuard {
 
   upsertNomination(
     ctx: GenericActionCtx<any>,
-    args: { externalId: string; nomineeName: string; nomineeContact: string },
+    args: { externalId: string; nomineeName: string; nomineeContact: string }
   ) {
     return ctx.runAction(this.component.nominations.upsert, args);
   }

@@ -1,5 +1,5 @@
-import { defineComponent } from "convex/server";
+import { defineComponent } from 'convex/server';
 
-const component = defineComponent("dpdpguard");
+const component = defineComponent('dpdpguard');
 
 export default component;

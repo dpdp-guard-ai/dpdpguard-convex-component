@@ -1,5 +1,5 @@
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { defineSchema, defineTable } from 'convex/server';
+import { v } from 'convex/values';
 
 // Isolated to this component's own tables - invisible to the host app's schema.
 export default defineSchema({
@@ -13,10 +13,10 @@ export default defineSchema({
   }),
 
   notices: defineTable({
-    kind: v.union(v.literal("notices"), v.literal("bannerConfig")),
+    kind: v.union(v.literal('notices'), v.literal('bannerConfig')),
     payload: v.any(),
     fetchedAt: v.number(),
-  }).index("by_kind", ["kind"]),
+  }).index('by_kind', ['kind']),
 
   // Caches the brokered principal access token per externalId (ADR-004).
   // Every DSR/grievance/nomination call needs this bearer token, not the
@@ -25,9 +25,9 @@ export default defineSchema({
     externalId: v.string(),
     accessToken: v.string(),
     expiresAt: v.number(),
-    status: v.union(v.literal("linked"), v.literal("revoked")),
+    status: v.union(v.literal('linked'), v.literal('revoked')),
     linkedAt: v.number(),
-  }).index("by_externalId", ["externalId"]),
+  }).index('by_externalId', ['externalId']),
 
   dsrRequests: defineTable({
     externalId: v.string(),
@@ -37,8 +37,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_externalId", ["externalId"])
-    .index("by_dpdpbotId", ["dpdpbotId"]),
+    .index('by_externalId', ['externalId'])
+    .index('by_dpdpbotId', ['dpdpbotId']),
 
   grievances: defineTable({
     externalId: v.string(),
@@ -47,15 +47,15 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_externalId", ["externalId"])
-    .index("by_dpdpbotId", ["dpdpbotId"]),
+    .index('by_externalId', ['externalId'])
+    .index('by_dpdpbotId', ['dpdpbotId']),
 
   nominations: defineTable({
     externalId: v.string(),
-    status: v.union(v.literal("active"), v.literal("revoked")),
+    status: v.union(v.literal('active'), v.literal('revoked')),
     payload: v.any(),
     updatedAt: v.number(),
-  }).index("by_externalId", ["externalId"]),
+  }).index('by_externalId', ['externalId']),
 
   // Idempotency guard for inbound dpdpbot webhooks. dpdpbot's webhook
   // envelope ({eventType, organizationId, payload, timestamp} - see
@@ -65,5 +65,5 @@ export default defineSchema({
     eventId: v.string(),
     type: v.string(),
     receivedAt: v.number(),
-  }).index("by_eventId", ["eventId"]),
+  }).index('by_eventId', ['eventId']),
 });

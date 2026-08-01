@@ -1,13 +1,12 @@
-import { v } from "convex/values";
-import { internalAction, internalQuery } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internalAction, internalQuery } from './_generated/server';
+import { api, internal } from './_generated/api';
 
 export const _listLinked = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const links = await ctx.db.query("consentLinks").collect();
+    const links = await ctx.db.query('consentLinks').collect();
     return links
-      .filter((l) => l.status === "linked" && l.expiresAt > Date.now())
+      .filter((l) => l.status === 'linked' && l.expiresAt > Date.now())
       .map((l) => l.externalId);
   },
 });

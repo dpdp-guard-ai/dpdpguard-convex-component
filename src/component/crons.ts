@@ -1,5 +1,5 @@
-import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+import { cronJobs } from 'convex/server';
+import { internal } from './_generated/api';
 
 // Reconciliation fallback for missed/delayed webhook deliveries. Cheap by
 // design - the actual diff-and-upsert logic in notices.refresh only
@@ -7,11 +7,7 @@ import { internal } from "./_generated/api";
 // means one extra interval of staleness, not a stuck record.
 const crons = cronJobs();
 
-crons.interval(
-  "refresh dpdpbot notices",
-  { minutes: 15 },
-  internal.notices.refresh,
-);
+crons.interval('refresh dpdpbot notices', { minutes: 15 }, internal.notices.refresh);
 
 // DSR/grievance updates aren't pushed via webhook today (see webhooks.ts) -
 // this is the only sync path for them until dpdpbot ships principal-scoped
@@ -20,7 +16,7 @@ crons.interval(
 crons.interval(
   "reconcile linked principals' DSR/grievance state",
   { minutes: 30 },
-  internal.reconcile.principals,
+  internal.reconcile.principals
 );
 
 export default crons;

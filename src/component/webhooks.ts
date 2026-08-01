@@ -1,18 +1,14 @@
-import { v } from "convex/values";
-import {
-  httpAction,
-  internalMutation,
-  internalQuery,
-} from "./_generated/server";
-import { internal } from "./_generated/api";
-import { verifyWebhookSignature } from "./_lib/dpdpClient";
+import { v } from 'convex/values';
+import { httpAction, internalMutation, internalQuery } from './_generated/server';
+import { internal } from './_generated/api';
+import { verifyWebhookSignature } from './_lib/dpdpClient';
 
 export const _seen = internalQuery({
   args: { eventId: v.string() },
   handler: async (ctx, { eventId }) => {
     const row = await ctx.db
-      .query("webhookEvents")
-      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+      .query('webhookEvents')
+      .withIndex('by_eventId', (q) => q.eq('eventId', eventId))
       .first();
     return row !== null;
   },
@@ -21,18 +17,15 @@ export const _seen = internalQuery({
 export const _markSeen = internalMutation({
   args: { eventId: v.string(), type: v.string() },
   handler: async (ctx, args) => {
-    await ctx.db.insert("webhookEvents", { ...args, receivedAt: Date.now() });
+    await ctx.db.insert('webhookEvents', { ...args, receivedAt: Date.now() });
   },
 });
 
 async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 // dpdpbot's webhook secret is per-endpoint (convex/webhooks.ts's
@@ -51,17 +44,17 @@ async function sha256Hex(input: string): Promise<string> {
 // grievances.refresh() (polled by crons.ts) are the only sync path for
 // those until dpdpbot ships principal-scoped lifecycle webhooks.
 export const receive = httpAction(async (ctx, request) => {
-  const signature = request.headers.get("X-DPDP-Signature");
+  const signature = request.headers.get('X-DPDP-Signature');
   const rawBody = await request.text();
   const secret = process.env.DPDPGUARD_WEBHOOK_SECRET;
 
   if (!secret || !signature) {
-    return new Response("missing signature", { status: 401 });
+    return new Response('missing signature', { status: 401 });
   }
 
   const valid = await verifyWebhookSignature(secret, rawBody, signature);
   if (!valid) {
-    return new Response("invalid signature", { status: 401 });
+    return new Response('invalid signature', { status: 401 });
   }
 
   const eventId = await sha256Hex(rawBody);
@@ -69,7 +62,7 @@ export const receive = httpAction(async (ctx, request) => {
     eventId,
   });
   if (alreadySeen) {
-    return new Response("ok", { status: 200 });
+    return new Response('ok', { status: 200 });
   }
 
   const event = JSON.parse(rawBody) as {
@@ -87,5 +80,5 @@ export const receive = httpAction(async (ctx, request) => {
     type: event.eventType,
   });
 
-  return new Response("ok", { status: 200 });
+  return new Response('ok', { status: 200 });
 });

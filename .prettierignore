@@ -1,0 +1,7 @@
+dist/
+node_modules/
+src/component/generated/
+example/
+.next/
+coverage/
+.git/

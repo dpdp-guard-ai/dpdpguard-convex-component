@@ -1,15 +1,15 @@
-import { query, action, internalMutation } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { v } from "convex/values";
-import { dpdpClient } from "./_lib/dpdpClient";
+import { query, action, internalMutation } from './_generated/server';
+import { internal } from './_generated/api';
+import { v } from 'convex/values';
+import { dpdpClient } from './_lib/dpdpClient';
 
 // Reads are served from the local cache - reactive, no network round trip.
 export const get = query({
   args: {},
   handler: async (ctx) => {
     const row = await ctx.db
-      .query("notices")
-      .withIndex("by_kind", (q) => q.eq("kind", "notices"))
+      .query('notices')
+      .withIndex('by_kind', (q) => q.eq('kind', 'notices'))
       .first();
     return row?.payload ?? null;
   },
@@ -19,8 +19,8 @@ export const getBanner = query({
   args: {},
   handler: async (ctx) => {
     const row = await ctx.db
-      .query("notices")
-      .withIndex("by_kind", (q) => q.eq("kind", "bannerConfig"))
+      .query('notices')
+      .withIndex('by_kind', (q) => q.eq('kind', 'bannerConfig'))
       .first();
     return row?.payload ?? null;
   },
@@ -28,19 +28,19 @@ export const getBanner = query({
 
 export const _upsert = internalMutation({
   args: {
-    kind: v.union(v.literal("notices"), v.literal("bannerConfig")),
+    kind: v.union(v.literal('notices'), v.literal('bannerConfig')),
     payload: v.any(),
   },
   handler: async (ctx, { kind, payload }) => {
     const existing = await ctx.db
-      .query("notices")
-      .withIndex("by_kind", (q) => q.eq("kind", kind))
+      .query('notices')
+      .withIndex('by_kind', (q) => q.eq('kind', kind))
       .first();
     const row = { kind, payload, fetchedAt: Date.now() };
     if (existing) {
       await ctx.db.patch(existing._id, row);
     } else {
-      await ctx.db.insert("notices", row);
+      await ctx.db.insert('notices', row);
     }
   },
 });
@@ -57,11 +57,11 @@ export const refresh = action({
       dpdpClient.getBannerConfig(config, config.orgId),
     ]);
     await ctx.runMutation(internal.notices._upsert, {
-      kind: "notices",
+      kind: 'notices',
       payload: notices,
     });
     await ctx.runMutation(internal.notices._upsert, {
-      kind: "bannerConfig",
+      kind: 'bannerConfig',
       payload: bannerConfig,
     });
   },
