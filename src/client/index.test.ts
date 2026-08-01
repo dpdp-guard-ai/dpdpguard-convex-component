@@ -105,7 +105,10 @@ describe('DpdpGuard', () => {
 
       await dpdp.linkAnonymousConsent(mockActionCtx, args);
 
-      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.consent.linkAnonymous, args);
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(
+        mockComponent.consent.linkAnonymous,
+        args
+      );
     });
   });
 

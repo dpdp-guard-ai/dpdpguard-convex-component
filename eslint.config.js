@@ -11,8 +11,10 @@ export default [
       'dist/**',
       'node_modules/**',
       'src/component/generated/**',
+      'src/component/_generated/**',
       'example/**',
       '.next/**',
+      'vitest.config.ts',
     ],
   },
   {
@@ -65,6 +67,12 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+    },
+  },
+  {
+    files: ['**/*.test.ts', '**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 ];
