@@ -1,9 +1,13 @@
 {
   "name": "@dpdpguard/convex",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Convex Component for dpdpbot (DPDP Guard) - native Convex integration over the dpdpbot /api/v1 contract",
   "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dpdp-guard-ai/dpdpguard-convex-component"
+  },
   "exports": {
     ".": {
       "types": "./dist/client/index.d.ts",
