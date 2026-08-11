@@ -37,6 +37,9 @@ function typescriptFiles(dir: string): string[] {
 /** `from './x'` / `import './x'`, capturing the specifier. */
 const RELATIVE_SPECIFIER = /(?:from|import)\s+['"](\.{1,2}\/[^'"]*)['"]/g;
 
+/** Any import whose specifier ends in `.json`, relative or bare. */
+const JSON_IMPORT = /(?:from|import)\s+['"]([^'"]*\.json)['"]/g;
+
 describe('package output resolvability', () => {
   it('gives every relative import an explicit .js extension', () => {
     const offenders: string[] = [];
@@ -47,6 +50,23 @@ describe('package output resolvability', () => {
         const specifier = match[1];
         if (specifier.endsWith('.js') || specifier.endsWith('.json')) continue;
         offenders.push(`${file.slice(SRC.length)}: ${specifier}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("gives every JSON import a `with { type: 'json' }` attribute", () => {
+    const offenders: string[] = [];
+
+    for (const file of typescriptFiles(SRC)) {
+      const source = readFileSync(file, 'utf8');
+      for (const match of source.matchAll(JSON_IMPORT)) {
+        // The attribute, if present, follows the closing quote on the same
+        // statement — Node rejects the import outright without it.
+        const rest = source.slice(match.index + match[0].length, match.index + match[0].length + 60);
+        if (/^\s*with\s*\{\s*type\s*:\s*['"]json['"]\s*\}/.test(rest)) continue;
+        offenders.push(`${file.slice(SRC.length)}: ${match[1]}`);
       }
     }
 

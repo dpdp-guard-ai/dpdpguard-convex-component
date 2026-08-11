@@ -26,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   TypeScript sources, not `dist/` — so `src/packaging.test.ts` now asserts the
   invariant at the source level, where the mistake is actually made.
 
+- **The contract's error catalog was imported without an import attribute.**
+  `_lib/errorCatalog.ts` did `import catalog from
+  '@dpdpguard/contract/conformance/error-catalog.json'`, which Node's ESM
+  loader rejects with "needs an import attribute of type: json". Same root
+  cause as the above and the same blast radius — the module is on the import
+  path of every API call, so the whole component was unloadable outside the
+  Convex bundler. Now carries `with { type: 'json' }`, which esbuild, tsc and
+  Node all accept, and `packaging.test.ts` asserts that too.
+
 ## [0.3.0] - 2026-08-11
 
 Brings the component up to the current published contract. It was pinned to
