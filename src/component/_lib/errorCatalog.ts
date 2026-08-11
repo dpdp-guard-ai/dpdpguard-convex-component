@@ -1,11 +1,14 @@
-import catalog from '@dpdpguard/contract/conformance/error-catalog.json';
+import catalog from '@dpdpguard/contract/conformance/error-catalog.json' with { type: 'json' };
 
 /**
  * ADR-002 D2's typed error-code enum, loaded from the installed
  * @dpdpguard/contract package rather than hand-copied here — a contract
  * upgrade that adds a code is a version bump away, not a manual edit.
- * (Convex's bundler statically resolves JSON imports at deploy time, so
- * this doesn't need the Node SDK's `createRequire` CJS/ESM workaround.)
+ * The `with { type: 'json' }` attribute is not decoration: Convex's bundler
+ * resolves a bare JSON import happily, but Node's ESM loader refuses one
+ * without the attribute, and this package is `"type": "module"`. Omitting it
+ * makes the whole component unimportable outside the Convex bundler — a host
+ * app's Vitest suite included.
  */
 export interface ErrorCatalogEntry {
   code: string;
