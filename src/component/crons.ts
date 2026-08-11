@@ -1,5 +1,5 @@
 import { cronJobs } from 'convex/server';
-import { internal } from './_generated/api';
+import { internal } from './_generated/api.js';
 
 // Reconciliation fallback for missed/delayed webhook deliveries. Cheap by
 // design - the actual diff-and-upsert logic in notices.refresh only

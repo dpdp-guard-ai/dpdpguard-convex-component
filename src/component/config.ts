@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation, query, internalQuery } from './_generated/server';
+import { mutation, query, internalQuery } from './_generated/server.js';
 
 // Called once by the host app to configure how this component reaches
 // dpdpbot. Kept as an explicit call (rather than reading host env vars)

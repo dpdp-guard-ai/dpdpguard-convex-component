@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { convexTest } from 'convex-test';
-import schema from './schema';
+import schema from './schema.js';
 
 const modules = (import.meta as any).glob('./**/*.ts');
 

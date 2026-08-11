@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
-import { action, query, internalMutation } from './_generated/server';
-import { internal } from './_generated/api';
-import { dpdpClient } from './_lib/dpdpClient';
-import type { IvrConsentArtifact, OfflineCaptureSession } from './_lib/dpdpClient';
+import { action, query, internalMutation } from './_generated/server.js';
+import { internal } from './_generated/api.js';
+import { dpdpClient } from './_lib/dpdpClient.js';
+import type { IvrConsentArtifact, OfflineCaptureSession } from './_lib/dpdpClient.js';
 
 /**
  * The offline / physical capture surface (contract 1.3.0 and 1.4.0):

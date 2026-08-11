@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
-import { httpAction, internalMutation, internalQuery } from './_generated/server';
-import { internal } from './_generated/api';
-import { verifyWebhookSignature } from './_lib/dpdpClient';
+import { httpAction, internalMutation, internalQuery } from './_generated/server.js';
+import { internal } from './_generated/api.js';
+import { verifyWebhookSignature } from './_lib/dpdpClient.js';
 
 export const _seen = internalQuery({
   args: { eventId: v.string() },

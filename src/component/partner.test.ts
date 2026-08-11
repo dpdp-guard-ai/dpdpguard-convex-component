@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { convexTest } from 'convex-test';
-import schema from './schema';
-import { dpdpClient } from './_lib/dpdpClient';
-import { DpdpGuardApiError } from './_lib/errorCatalog';
+import schema from './schema.js';
+import { dpdpClient } from './_lib/dpdpClient.js';
+import { DpdpGuardApiError } from './_lib/errorCatalog.js';
 
 const modules = (import.meta as any).glob('./**/*.ts');
 

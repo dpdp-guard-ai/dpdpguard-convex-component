@@ -1,7 +1,7 @@
-import { query, action, internalMutation } from './_generated/server';
-import { internal } from './_generated/api';
+import { query, action, internalMutation } from './_generated/server.js';
+import { internal } from './_generated/api.js';
 import { v } from 'convex/values';
-import { dpdpClient } from './_lib/dpdpClient';
+import { dpdpClient } from './_lib/dpdpClient.js';
 
 // Reads are served from the local cache - reactive, no network round trip.
 export const get = query({
