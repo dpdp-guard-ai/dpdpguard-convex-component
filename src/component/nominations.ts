@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
-import { action, query, internalMutation } from './_generated/server';
-import { internal } from './_generated/api';
-import { dpdpClient } from './_lib/dpdpClient';
+import { action, query, internalMutation } from './_generated/server.js';
+import { internal } from './_generated/api.js';
+import { dpdpClient } from './_lib/dpdpClient.js';
 
 export const get = query({
   args: { externalId: v.string() },

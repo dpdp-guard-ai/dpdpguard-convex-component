@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server';
-import { DpdpGuard } from './index';
+import { DpdpGuard } from './index.js';
 
 describe('DpdpGuard', () => {
   let mockComponent: any;

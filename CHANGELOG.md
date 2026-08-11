@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-08-11
+
+### Fixed
+
+- **The published ESM was unimportable from Node.** `tsc` copies relative
+  import specifiers through verbatim, so `import { receive } from './webhooks'`
+  in `src/` shipped unchanged into `dist/`. Convex's own bundler resolves an
+  extensionless specifier, but Node's ESM loader does not — and the package
+  declares `"type": "module"`. Any host app that imported
+  `@dpdpguard/convex/http` outside the Convex bundler (a Vitest suite, an SSR
+  build, a codemod) died with `ERR_MODULE_NOT_FOUND` on
+  `dist/component/webhooks` before reaching a line of component code.
+
+  Every relative import and export in `src/` now carries an explicit `.js`
+  extension. No runtime behaviour changes; the emitted module graph is the
+  same one, addressed the way the loader requires.
+
+  The repo's own tests never caught this because Vitest resolves the
+  TypeScript sources, not `dist/` — so `src/packaging.test.ts` now asserts the
+  invariant at the source level, where the mistake is actually made.
+
 ## [0.3.0] - 2026-08-11
 
 Brings the component up to the current published contract. It was pinned to

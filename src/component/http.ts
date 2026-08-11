@@ -1,5 +1,5 @@
 import { httpRouter } from 'convex/server';
-import { receive } from './webhooks';
+import { receive } from './webhooks.js';
 
 // Not itself registered against convex's own http router - this is a
 // factory the host app calls from its own convex/http.ts:

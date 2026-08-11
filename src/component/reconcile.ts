@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
-import { internalAction, internalQuery } from './_generated/server';
-import { api, internal } from './_generated/api';
+import { internalAction, internalQuery } from './_generated/server.js';
+import { api, internal } from './_generated/api.js';
 
 /** Upper bound on principals reconciled in one cron run. */
 const RECONCILE_BATCH_MAX = 500;

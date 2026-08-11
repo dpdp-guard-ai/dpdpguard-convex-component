@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
-import { action } from './_generated/server';
-import { internal } from './_generated/api';
-import { dpdpClient } from './_lib/dpdpClient';
+import { action } from './_generated/server.js';
+import { internal } from './_generated/api.js';
+import { dpdpClient } from './_lib/dpdpClient.js';
 
 /**
  * `POST /api/v1/consent/verify` - the Consent Gate (contract 1.4.0). A host
