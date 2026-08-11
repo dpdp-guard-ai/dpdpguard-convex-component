@@ -92,6 +92,15 @@ binding here at all.
   whether the caller won. `_markSeen` is gone; `_seen` remains for
   inspection.
 
+- **The published tarball no longer ships the test suite.** `tsc -p .`
+  compiled `*.test.ts` and `test-utils.ts` into `dist/`, so every release
+  since 0.2.1 shipped 26 test artefacts to consumers — including
+  `dist/test-utils.js`, which imports `convex-test`, a devDependency that is
+  not installed in a consuming app. Builds now run against a new
+  `tsconfig.build.json` that excludes them; `npm run typecheck` still covers
+  the tests via the unchanged root `tsconfig.json`. 71 files / 48.3 kB → 45
+  files / 40.0 kB.
+
 ### Notes
 
 - `@dpdpguard/contract` 1.5.0 adds two further Consent Gate observability

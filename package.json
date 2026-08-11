@@ -28,7 +28,7 @@
   "scripts": {
     "codegen": "node scripts/codegen.mjs",
     "postinstall": "node scripts/codegen.mjs",
-    "build": "npm run codegen && tsc -p .",
+    "build": "npm run codegen && tsc -p tsconfig.build.json",
     "typecheck": "npm run codegen && tsc -p . --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
