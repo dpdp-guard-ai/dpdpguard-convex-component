@@ -64,7 +64,10 @@ describe('package output resolvability', () => {
       for (const match of source.matchAll(JSON_IMPORT)) {
         // The attribute, if present, follows the closing quote on the same
         // statement — Node rejects the import outright without it.
-        const rest = source.slice(match.index + match[0].length, match.index + match[0].length + 60);
+        const rest = source.slice(
+          match.index + match[0].length,
+          match.index + match[0].length + 60
+        );
         if (/^\s*with\s*\{\s*type\s*:\s*['"]json['"]\s*\}/.test(rest)) continue;
         offenders.push(`${file.slice(SRC.length)}: ${match[1]}`);
       }
