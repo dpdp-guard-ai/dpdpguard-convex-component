@@ -14,10 +14,27 @@ export const _seen = internalQuery({
   },
 });
 
-export const _markSeen = internalMutation({
+/**
+ * Claims an event id, returning whether this call is the one that got it.
+ *
+ * The check and the insert have to happen in the same transaction. Reading
+ * `_seen` from the action and then inserting is a check-then-act across two
+ * transactions: dpdpbot retries a delivery it did not get a 200 for, so two
+ * deliveries of one event can both observe "not seen" and both insert, and
+ * the idempotency guard silently stops guarding. Convex mutations are
+ * transactional, so doing both here closes that window - one caller gets
+ * `true`, the other `false`.
+ */
+export const _claim = internalMutation({
   args: { eventId: v.string(), type: v.string() },
   handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('webhookEvents')
+      .withIndex('by_eventId', (q) => q.eq('eventId', args.eventId))
+      .first();
+    if (existing) return false;
     await ctx.db.insert('webhookEvents', { ...args, receivedAt: Date.now() });
+    return true;
   },
 });
 
@@ -58,12 +75,6 @@ export const receive = httpAction(async (ctx, request) => {
   }
 
   const eventId = await sha256Hex(rawBody);
-  const alreadySeen = await ctx.runQuery(internal.webhooks._seen, {
-    eventId,
-  });
-  if (alreadySeen) {
-    return new Response('ok', { status: 200 });
-  }
 
   const event = JSON.parse(rawBody) as {
     eventType: string;
@@ -72,13 +83,17 @@ export const receive = httpAction(async (ctx, request) => {
     timestamp: number;
   };
 
-  // Nothing to cache yet - see the comment above. Recording that the event
-  // arrived (webhookEvents) is what lets a host app add handling here
-  // later without re-plumbing idempotency.
-  await ctx.runMutation(internal.webhooks._markSeen, {
+  // One transaction decides whether this delivery is the first. Nothing to
+  // cache yet - see the comment above - but recording that the event
+  // arrived is what lets a host app add handling here later without
+  // re-plumbing idempotency, and a duplicate delivery must not re-run it.
+  const claimed = await ctx.runMutation(internal.webhooks._claim, {
     eventId,
     type: event.eventType,
   });
+  if (!claimed) {
+    return new Response('ok', { status: 200 });
+  }
 
   return new Response('ok', { status: 200 });
 });

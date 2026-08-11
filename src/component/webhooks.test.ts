@@ -13,12 +13,47 @@ describe('component/webhooks', () => {
 
   it('should mark event as seen and return true for _seen', async () => {
     const t = convexTest(schema, modules);
-    await t.mutation('webhooks:_markSeen' as any, {
+    await t.mutation('webhooks:_claim' as any, {
       eventId: 'evt-123',
       type: 'consent.given',
     });
 
     const seen = await t.query('webhooks:_seen' as any, { eventId: 'evt-123' });
     expect(seen).toBe(true);
+  });
+
+  it('should let only the first claim of an event id win', async () => {
+    const t = convexTest(schema, modules);
+
+    const first = await t.mutation('webhooks:_claim' as any, {
+      eventId: 'evt-dupe',
+      type: 'consent.given',
+    });
+    const second = await t.mutation('webhooks:_claim' as any, {
+      eventId: 'evt-dupe',
+      type: 'consent.given',
+    });
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+
+    // The point of claiming inside one transaction: a redelivery must not
+    // leave a second row behind for a host app's handler to act on twice.
+    const rows = await t.run(async (ctx: any) => await ctx.db.query('webhookEvents').collect());
+    expect(rows).toHaveLength(1);
+  });
+
+  it('should not confuse two different event ids', async () => {
+    const t = convexTest(schema, modules);
+
+    expect(
+      await t.mutation('webhooks:_claim' as any, { eventId: 'a', type: 'consent.given' })
+    ).toBe(true);
+    expect(
+      await t.mutation('webhooks:_claim' as any, { eventId: 'b', type: 'consent.withdrawn' })
+    ).toBe(true);
+
+    const rows = await t.run(async (ctx: any) => await ctx.db.query('webhookEvents').collect());
+    expect(rows).toHaveLength(2);
   });
 });

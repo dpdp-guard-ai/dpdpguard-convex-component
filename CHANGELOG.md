@@ -69,6 +69,29 @@ binding here at all.
 - 26 new tests across `consentGate.test.ts`, `partner.test.ts`,
   `offline.test.ts`, and the client-class suite.
 
+### Fixed
+
+- **`listOfflineConsentLinks` no longer reads the whole table.** It was an
+  unbounded `.collect()` on a table that only grows (a branch mints a link
+  per counter, per campaign, and nothing prunes them) behind a query the
+  host app subscribes to — so every mint re-read and re-pushed the entire
+  history to every subscriber. Now newest-first and bounded (100 default,
+  500 max) over a new `by_createdAt` index.
+- **The reconciliation cron no longer scans every link ever created.**
+  `reconcile._listLinked` did `.collect()` on `consentLinks` and then
+  filtered in JS, which reads revoked and long-expired rows in full every 30
+  minutes to act on the live subset. It now selects through a new
+  `by_status_and_expiresAt` index, descending, capped at 500 principals per
+  run. Both fields are required on every row, so there is no
+  undefined-vs-value hazard for an existing 0.2.x install.
+- **Webhook idempotency is now actually atomic.** `webhooks.receive` read
+  `_seen` in one transaction and inserted in another — a check-then-act
+  window where two deliveries of the same event (dpdpbot retries anything it
+  doesn't get a 200 for) could both observe "not seen" and both insert.
+  Replaced with a single transactional `_claim` mutation that returns
+  whether the caller won. `_markSeen` is gone; `_seen` remains for
+  inspection.
+
 ### Notes
 
 - `@dpdpguard/contract` 1.5.0 adds two further Consent Gate observability
