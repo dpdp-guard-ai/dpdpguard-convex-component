@@ -27,7 +27,13 @@ export default defineSchema({
     expiresAt: v.number(),
     status: v.union(v.literal('linked'), v.literal('revoked')),
     linkedAt: v.number(),
-  }).index('by_externalId', ['externalId']),
+  })
+    .index('by_externalId', ['externalId'])
+    // The reconciliation cron wants "linked, not yet expired". Both fields
+    // are required on every row (no undefined-vs-value hazard on an
+    // existing install), so the range read is exact rather than a scan the
+    // cron then filters in JS.
+    .index('by_status_and_expiresAt', ['status', 'expiresAt']),
 
   dsrRequests: defineTable({
     externalId: v.string(),
@@ -87,7 +93,11 @@ export default defineSchema({
     purpose: v.string(),
     label: v.optional(v.string()),
     createdAt: v.number(),
-  }).index('by_linkId', ['linkId']),
+  })
+    .index('by_linkId', ['linkId'])
+    // Listing is newest-first and bounded, so the ordering comes from an
+    // index rather than from sorting a full scan in JS.
+    .index('by_createdAt', ['createdAt']),
 
   // Idempotency guard for inbound dpdpbot webhooks. dpdpbot's webhook
   // envelope ({eventType, organizationId, payload, timestamp} - see

@@ -127,8 +127,11 @@ export class DpdpGuard {
     return ctx.runAction(this.component.offline.createConsentLink, args);
   }
 
-  listOfflineConsentLinks(ctx: GenericQueryCtx<any>) {
-    return ctx.runQuery(this.component.offline.listConsentLinks, {});
+  /** Newest-first and bounded (100 by default, 500 max) — this table only grows. */
+  listOfflineConsentLinks(ctx: GenericQueryCtx<any>, opts?: { limit?: number }) {
+    return ctx.runQuery(this.component.offline.listConsentLinks, {
+      ...(opts?.limit !== undefined ? { limit: opts.limit } : {}),
+    });
   }
 
   /**

@@ -127,6 +127,30 @@ describe('component/offline', () => {
     expect(links[0].label).toBe('Mumbai Branch — Counter 3');
   });
 
+  it('lists links newest-first and bounded, not the whole table', async () => {
+    const t = await configured();
+    vi.spyOn(dpdpClient, 'createOfflineConsentLink').mockImplementation((_config, input) =>
+      Promise.resolve({ linkId: `link-${input.label}`, token: `tok-${input.label}` })
+    );
+
+    for (const label of ['a', 'b', 'c']) {
+      await t.action('offline:createConsentLink' as any, {
+        noticeId: 'notice-1',
+        purpose: 'Account opening',
+        dataTypes: ['email'],
+        label,
+      });
+    }
+
+    const newestFirst: any = await t.query('offline:listConsentLinks' as any, {});
+    expect(newestFirst.map((l: any) => l.label)).toEqual(['c', 'b', 'a']);
+
+    // The host app subscribes to this query, so it must never fan out to
+    // the full history as links accumulate.
+    const capped: any = await t.query('offline:listConsentLinks' as any, { limit: 2 });
+    expect(capped.map((l: any) => l.label)).toEqual(['c', 'b']);
+  });
+
   it('raises a POS consent request without recording a consent', async () => {
     const t = await configured();
     vi.spyOn(dpdpClient, 'createPosConsentRequest').mockResolvedValueOnce({

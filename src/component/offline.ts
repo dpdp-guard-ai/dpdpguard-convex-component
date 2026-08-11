@@ -126,10 +126,27 @@ export const createConsentLink = action({
   },
 });
 
+/** How many links a bare `listConsentLinks()` returns, newest first. */
+const CONSENT_LINK_PAGE_DEFAULT = 100;
+const CONSENT_LINK_PAGE_MAX = 500;
+
+/**
+ * Bounded on purpose. This table only grows — a branch mints a link per
+ * counter, per campaign, and nothing prunes them — and the host app
+ * subscribes to this with `useQuery`, so an unbounded `.collect()` would
+ * mean every mint re-reads and re-pushes the entire history to every
+ * subscriber. Newest-first is also the useful order: the link somebody is
+ * looking for is almost always one they just minted.
+ */
 export const listConsentLinks = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query('offlineConsentLinks').collect();
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const take = Math.min(Math.max(limit ?? CONSENT_LINK_PAGE_DEFAULT, 1), CONSENT_LINK_PAGE_MAX);
+    return await ctx.db
+      .query('offlineConsentLinks')
+      .withIndex('by_createdAt')
+      .order('desc')
+      .take(take);
   },
 });
 
