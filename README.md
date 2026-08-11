@@ -4,7 +4,7 @@ A [Convex Component](https://www.convex.dev/components) for [dpdpbot](https://gi
 
 ## Status
 
-Early scaffold, now wired to dpdpbot's real `/api/v1` contract (paths, auth model, and generated types come from the installed `@dpdpguard/contract` package — see "Building" below). The public API mirrors `@dpdpguard/server`'s method names 1:1 so migrating from the Node SDK is close to a search-and-replace.
+Wired to dpdpbot's real `/api/v1` contract (paths, auth model, and generated types come from the installed `@dpdpguard/contract` package — see "Building" below), currently tracking contract `1.4.0` / OpenAPI `2.7.0`. The brokered-principal methods mirror `@dpdpguard/server`'s method names 1:1 so migrating from the Node SDK is close to a search-and-replace; the service-key surface (Consent Gate, compliance registers, offline capture) is described under "Two credentials, two surfaces" below.
 
 ## Why this exists instead of just using the Node SDK
 
@@ -24,20 +24,24 @@ src/
   component/           # runs inside the host app's Convex deployment
     convex.config.ts   # defineComponent("dpdpguard")
     schema.ts           # isolated tables: config, notices, consentLinks,
-                         # dsrRequests, grievances, nominations, webhookEvents
+                         # dsrRequests, grievances, nominations, webhookEvents,
+                         # offlineCaptures, offlineConsentLinks
     config.ts            # setup() mutation to store baseUrl/apiKey/orgId
     notices.ts            # cached read + refresh action
     consent.ts             # brokerToken, linkAnonymousConsent, token cache
     dsr.ts                  # createDsrRequest, listDsrRequests, refresh
     grievances.ts            # createGrievance, listGrievances, refresh
     nominations.ts            # upsert/get/revoke
-    reconcile.ts               # cron-driven per-principal DSR/grievance poll
-    webhooks.ts                 # httpAction handler + signature verification
-    http.ts                      # registerRoutes() the host mounts
-    crons.ts                      # reconciliation fallback for missed webhooks
-    generated/api-types.ts         # openapi-typescript output, gitignored
-    _lib/dpdpClient.ts               # typed fetch wrapper + Web Crypto HMAC verify
-    _lib/errorCatalog.ts              # ERROR_CATALOG + DpdpGuardApiError
+    consentGate.ts             # verify() — stop-processing check, never cached
+    partner.ts                  # retention/breach/cross-border register reads
+    offline.ts                   # QR links, capture batch sync, POS + IVR
+    reconcile.ts                  # cron-driven per-principal DSR/grievance poll
+    webhooks.ts                    # httpAction handler + signature verification
+    http.ts                         # registerRoutes() the host mounts
+    crons.ts                         # reconciliation fallback for missed webhooks
+    generated/api-types.ts            # openapi-typescript output, gitignored
+    _lib/dpdpClient.ts                 # typed fetch wrapper + Web Crypto HMAC verify
+    _lib/errorCatalog.ts                # ERROR_CATALOG + DpdpGuardApiError
   client/
     index.ts                      # DpdpGuard class — the app-facing API
 example/                           # minimal host app used to run `npx convex dev`
@@ -96,6 +100,73 @@ const dsr = await dpdp.createDsrRequest(ctx, { externalId: user.tokenIdentifier,
 const myDsrRequests = useQuery(api.dpdp.listDsrRequests, { externalId });
 ```
 
+## Two credentials, two surfaces
+
+Everything above is the **brokered-principal** surface: a data principal
+acting on their own records, so each call carries the short-lived bearer
+token `brokerToken()` mints.
+
+The rest of the component is the **service-key** surface — the host app's own
+backend acting as the fiduciary, authenticated with the `apiKey` passed to
+`configure()`. No `brokerToken()` call is needed for any of it.
+
+### Consent Gate
+
+```ts
+// in an action, immediately before acting on a principal's data
+const { decision } = await dpdp.verifyConsent(ctx, consentId);
+if (decision !== "allow") return; // withdrawn — stop processing
+```
+
+This is an action, not a query, and nothing about the answer is cached or
+stored. The gate's whole value is that the decision comes from the consent
+record's current withdrawal state rather than from anything the caller
+remembers, so subscribing to it would defeat it. Treat a thrown
+`DpdpGuardApiError` as "do not process" — an unreachable gate is not consent.
+
+### Compliance registers
+
+```ts
+const { due } = await dpdp.listDueRetentions(ctx);        // GET /api/v1/retention/due
+const { breaches } = await dpdp.listBreaches(ctx);        // GET /api/v1/breaches
+await dpdp.listCrossBorderTransfers(ctx);                 // GET /api/v1/cross-border/transfers
+```
+
+Read live rather than mirrored into component tables: these are registers a
+host app acts on now, and a stale copy of "who is past their retention
+window" is worse than no copy. Each route is flag-gated on the dpdpbot side —
+while its flag is off it 404s, arriving here as a `DpdpGuardApiError` with
+code `NOT_FOUND`, which stays distinguishable from an enabled route that
+simply has nothing to report.
+
+### Offline / physical capture
+
+```ts
+// mint a QR/offline consent link from a POS terminal or hospital system
+const link = await dpdp.createOfflineConsentLink(ctx, {
+  noticeId, purpose: "Account opening", dataTypes: ["email"], label: "Counter 3",
+});
+
+// push queued device-signed sessions when connectivity returns
+const results = await dpdp.syncOfflineCaptures(ctx, sessions);
+// a batch that resolves without throwing may still contain rejected sessions
+const failed = results.filter((r) => r.status !== "verified");
+
+// what this component recorded for one session (idempotency bookkeeping)
+const outcome = useQuery(api.dpdp.getOfflineCapture, { clientSessionId });
+
+// a till raises an async request — NOT a consent until the principal confirms
+await dpdp.createPosConsentRequest(ctx, { noticeId, purpose, dataTypes, phone });
+
+// a telephony partner submits a completed call's artefact
+await dpdp.recordIvrConsentArtifact(ctx, artifact);
+```
+
+Capture results are stored keyed by `clientSessionId` — the contract's own
+idempotency key — so a device that loses connectivity mid-sync can ask what
+already committed instead of replaying blind. Replaying a committed batch
+writes nothing on either side.
+
 ## Building
 
 `src/component/generated/api-types.ts` is generated by `scripts/codegen.mjs` (via `openapi-typescript`, run against the `openapi/v1.yaml` shipped inside the installed `@dpdpguard/contract` package — the same mechanism `dpdpguard-server-node-sdk/scripts/codegen.mjs` uses) and is gitignored. `src/component/_generated` and `example/convex/_generated` are Convex-CLI generated and also gitignored. To build:
@@ -113,7 +184,9 @@ npm run build       # re-runs codegen, then tsc
 
 - Only `notices` and (via the `reconcile.principals` cron) linked principals' DSR/grievance state are polled for reconciliation. Nomination changes made directly on dpdpbot's dashboard aren't reflected locally until the next time the host app calls `getNomination`/re-fetches — there's no nomination polling cron, since `GET /api/v1/nomination` only returns the caller's own single record and dpdpbot doesn't page/filter that endpoint the way DSR/grievance listing do.
 - Webhook signature verification expects `DPDPGUARD_WEBHOOK_SECRET` as a host app environment variable; there's no `config.setup()` field for it yet. The header name (`X-DPDP-Signature`) and HMAC-SHA256/hex algorithm are confirmed against dpdpbot's actual `convex/webhooks.ts`, but as noted above, the events it currently dispatches (`consent.given`/`consent.withdrawn`) don't carry enough information to update this component's per-principal cache tables — `webhooks.ts` currently just records that an event arrived, and does nothing with the payload yet.
-- No tests yet. `convex-test` is listed as a devDependency; component behavior (especially token expiry handling in `consent._requireAccessToken` and the webhook idempotency path) should be covered before this is used for anything beyond a proof of concept.
+- Every call is tested against a mocked `dpdpClient`, never against a live dpdpbot deployment — the shapes those mocks return are typed from `@dpdpguard/contract`, so they can't drift from the wire contract, but nothing here exercises a real HTTP round trip.
+- `@dpdpguard/contract` 1.5.0 adds two Consent Gate observability routes (`GET /api/v1/consent/gate/decisions` and `.../alerts`) that aren't bound here yet. 1.4.0 is the newest version published to npm, and `scripts/codegen.mjs` reads the spec out of the installed package, so binding them has to wait for that publish.
+- The `/api/v1/staff/*` fiduciary/DPO surface is not wrapped at all. It authenticates with a staff login session rather than either credential this component holds, so it has no natural home here.
 - The `reconcile.principals` cron loops over every linked principal every 30 minutes with no batching/pagination — fine at small scale, but should be revisited (e.g. only reconcile principals with an open DSR/grievance) before use with a large user base.
 
 ## License

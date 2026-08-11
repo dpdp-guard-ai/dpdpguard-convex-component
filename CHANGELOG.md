@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-11
+
+Brings the component up to the current published contract. It was pinned to
+`@dpdpguard/contract` 1.2.0 (OpenAPI 2.4.1) and implemented only the
+brokered-principal surface, so four contract releases' worth of
+service-key routes — including every route added since 1.1.0 — had no
+binding here at all.
+
+### Changed
+
+- **`@dpdpguard/contract` ^1.2.0 → ^1.4.0** (OpenAPI 2.4.1 → 2.7.0).
+  Purely additive on the contract side, so nothing existing changed shape;
+  `scripts/codegen.mjs` regenerates `src/component/generated/api-types.ts`
+  against the newer spec on install.
+
+### Added
+
+- **Consent Gate** (`consentGate.ts`, `dpdp.verifyConsent()`) — wraps
+  `POST /api/v1/consent/verify`. Ask immediately before acting on a
+  principal's data and get back `allow`/`deny` derived from the consent
+  record's own withdrawal state. Deliberately an action with no cache and no
+  component table behind it: a locally remembered "they consented" is the
+  exact failure the gate exists to remove, so a decision is never stored or
+  subscribed to. A thrown `DpdpGuardApiError` should be treated as "do not
+  process" — an unreachable gate is not consent.
+- **Partner registers** (`partner.ts`) — `dpdp.listDueRetentions()`,
+  `dpdp.listBreaches()`, `dpdp.listCrossBorderTransfers()`, over the three
+  read-only B1 routes (`GET /api/v1/retention/due`, `/api/v1/breaches`,
+  `/api/v1/cross-border/transfers`) that have been in the contract since
+  1.1.0. Pass-through rather than cached: these are compliance registers a
+  host app acts on now, and a stale local copy of "who is past their
+  retention window" is worse than no copy. While a route's dpdpbot-side flag
+  is off it 404s, which surfaces as a `DpdpGuardApiError` with code
+  `NOT_FOUND` — distinct from an enabled route that legitimately has nothing
+  to report.
+- **Offline / physical capture** (`offline.ts`):
+  - `dpdp.createOfflineConsentLink()` / `dpdp.listOfflineConsentLinks()` —
+    mint an offline/QR consent link from a host system (HIS, POS, CBS) and
+    find it again without re-minting.
+  - `dpdp.syncOfflineCaptures()` / `dpdp.getOfflineCapture()` — push queued
+    device-signed capture sessions and keep each session's outcome locally.
+    Partial success is the normal case: a batch that resolves without
+    throwing may still contain quarantined or rejected sessions, so callers
+    must read each result's `status`. Results are stored keyed by
+    `clientSessionId` — the contract's own idempotency key — so a device
+    that loses connectivity mid-sync can ask what already committed instead
+    of replaying blind.
+  - `dpdp.createPosConsentRequest()` — a till raises an asynchronous request
+    against a keyed-in phone number. The result is **not** a consent and
+    nothing is recorded until the principal confirms on their own device.
+  - `dpdp.recordIvrConsentArtifact()` — a telephony partner submits a
+    completed call's artefact. `partnerCallId` is the idempotency key, so
+    resubmitting one call returns the original artefact rather than
+    materialising a second consent.
+- **New isolated tables**: `offlineCaptures` (by `clientSessionId`) and
+  `offlineConsentLinks` (by `linkId`). Additive — no existing table changed.
+- Contract-derived response types re-exported from the package root
+  (`ConsentGateDecision`, `OfflineCaptureSession`, `OfflineCaptureResult`,
+  `IvrConsentArtifact`, …), inferred from the generated `operations` map
+  rather than hand-written, so a future contract bump that reshapes one of
+  them is a compile error here instead of a runtime surprise.
+- 26 new tests across `consentGate.test.ts`, `partner.test.ts`,
+  `offline.test.ts`, and the client-class suite.
+
+### Notes
+
+- `@dpdpguard/contract` 1.5.0 adds two further Consent Gate observability
+  routes (`GET /api/v1/consent/gate/decisions` and `.../alerts`). They are
+  not bound here yet — 1.4.0 is the newest version published to npm, and
+  `scripts/codegen.mjs` reads the spec out of the installed package.
+
 ## [0.2.2] - 2026-08-01
 
 ### Fixed
