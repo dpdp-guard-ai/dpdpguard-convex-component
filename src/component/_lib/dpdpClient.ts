@@ -1,4 +1,4 @@
-import type { components } from '../generated/api-types.js';
+import type { components, operations } from '../generated/api-types.js';
 import { DpdpGuardApiError } from './errorCatalog.js';
 
 export type OrgSummary = components['schemas']['OrgSummary'];
@@ -6,6 +6,33 @@ export type Notice = components['schemas']['Notice'];
 export type DsrRequest = components['schemas']['DsrRequest'];
 export type Grievance = components['schemas']['Grievance'];
 export type Nomination = components['schemas']['Nomination'];
+export type CreateOfflineConsentLinkRequest =
+  components['schemas']['CreateOfflineConsentLinkRequest'];
+export type OfflineConsentLink = components['schemas']['OfflineConsentLink'];
+export type OfflineCaptureSession = components['schemas']['OfflineCaptureSession'];
+export type OfflineCaptureResult = components['schemas']['OfflineCaptureResult'];
+export type IvrConsentArtifact = components['schemas']['IvrConsentArtifact'];
+
+// Response bodies the contract declares inline on the operation rather than
+// as a named schema. Derived from `operations` instead of hand-written, so a
+// contract bump that reshapes one of them is a compile error here.
+type JsonResponse<
+  Op extends keyof operations,
+  Status extends keyof operations[Op]['responses'],
+> = operations[Op]['responses'][Status] extends {
+  content: { 'application/json': infer Body };
+}
+  ? Body
+  : never;
+
+export type DueRetentionList = JsonResponse<'listDueRetentions', 200>;
+export type BreachRegisterList = JsonResponse<'listBreaches', 200>;
+export type CrossBorderTransferList = JsonResponse<'listCrossBorderTransfers', 200>;
+export type ConsentGateDecision = JsonResponse<'verifyConsentGate', 200>;
+export type PosConsentRequest = JsonResponse<'createPosConsentRequest', 201>;
+export type IvrConsentArtifactReceipt = JsonResponse<'recordIvrConsentArtifact', 201>;
+export type PosConsentRequestInput =
+  operations['createPosConsentRequest']['requestBody']['content']['application/json'];
 
 export type DpdpConfig = {
   baseUrl: string;
@@ -99,6 +126,75 @@ export const dpdpClient = {
       { auth: 'none' }
     );
   },
+
+  // --- Partner/server-integration reads (contract 1.1.0, B1) ---
+  //
+  // These carry the org-scoped service `apiKey` directly, never a brokered
+  // principal token: they are a fiduciary's own backend reading its own
+  // registers, not a data principal reading their own records. Every one of
+  // them is read-only and flag-gated on the dpdpbot side - while the
+  // corresponding flag is off the route 404s, which surfaces here as a
+  // DpdpGuardApiError with code NOT_FOUND rather than an empty list.
+
+  listDueRetentions: (config: DpdpConfig) =>
+    request<DueRetentionList>(config, 'GET', '/api/v1/retention/due', { auth: 'apiKey' }),
+
+  listBreaches: (config: DpdpConfig) =>
+    request<BreachRegisterList>(config, 'GET', '/api/v1/breaches', { auth: 'apiKey' }),
+
+  listCrossBorderTransfers: (config: DpdpConfig) =>
+    request<CrossBorderTransferList>(config, 'GET', '/api/v1/cross-border/transfers', {
+      auth: 'apiKey',
+    }),
+
+  // --- Consent Gate (contract 1.4.0) ---
+
+  // Stop-processing enforcement: ask immediately before acting on a
+  // principal's data. Deliberately not cached anywhere in this component -
+  // the whole point of the gate is that the answer comes from the consent
+  // record's own state rather than from whatever the caller's pipeline
+  // remembers.
+  verifyConsent: (config: DpdpConfig, consentId: string) =>
+    request<ConsentGateDecision>(config, 'POST', '/api/v1/consent/verify', {
+      body: { consentId },
+      auth: 'apiKey',
+    }),
+
+  // --- Offline / physical capture (contract 1.3.0 + 1.4.0) ---
+
+  createOfflineConsentLink: (config: DpdpConfig, input: CreateOfflineConsentLinkRequest) =>
+    request<OfflineConsentLink>(config, 'POST', '/api/v1/offline-consent/links', {
+      body: input,
+      auth: 'apiKey',
+    }),
+
+  // Partial success is the normal case: a 200 does not mean every session
+  // was accepted, so callers must inspect each result's `status`.
+  // `clientSessionId` is the idempotency key - replaying a committed batch
+  // writes nothing.
+  syncOfflineCaptures: (config: DpdpConfig, sessions: OfflineCaptureSession[]) =>
+    request<{ results: OfflineCaptureResult[] }>(config, 'POST', '/api/v1/offline/captures', {
+      body: { sessions },
+      auth: 'apiKey',
+    }),
+
+  // NOT a consent: a till raises an asynchronous request against a keyed-in
+  // phone number and nothing is recorded until the principal confirms on
+  // their own device.
+  createPosConsentRequest: (config: DpdpConfig, input: PosConsentRequestInput) =>
+    request<PosConsentRequest>(config, 'POST', '/api/v1/offline/pos', {
+      body: input,
+      auth: 'apiKey',
+    }),
+
+  // `partnerCallId` is the idempotency key: telephony gateways retry on
+  // timeout, and a resubmission of one completed call returns the original
+  // artefact rather than materialising a second consent.
+  recordIvrConsentArtifact: (config: DpdpConfig, artifact: IvrConsentArtifact) =>
+    request<IvrConsentArtifactReceipt>(config, 'POST', '/api/v1/offline/ivr', {
+      body: artifact,
+      auth: 'apiKey',
+    }),
 
   // --- Token broker (ADR-004): apiKey mints a principal bearer token ---
 

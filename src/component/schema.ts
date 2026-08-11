@@ -57,6 +57,38 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_externalId', ['externalId']),
 
+  // Per-session outcome of every offline capture batch this component has
+  // pushed to `POST /api/v1/offline/captures`. Keyed by the same
+  // `clientSessionId` the wire contract uses as its idempotency key, so a
+  // host app that loses connectivity mid-sync can ask what already
+  // committed instead of replaying blind. `status`/`reason` are stored as
+  // strings rather than unions - they are dpdpbot's vocabulary, and a
+  // contract that adds a quarantine reason must not make old rows
+  // unreadable.
+  offlineCaptures: defineTable({
+    clientSessionId: v.string(),
+    status: v.string(),
+    consentId: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    // The receipt that makes the consent withdrawable - present only for a
+    // verified session. Handed to the principal, never re-derived.
+    withdrawalToken: v.optional(v.string()),
+    syncedAt: v.number(),
+  }).index('by_clientSessionId', ['clientSessionId']),
+
+  // Offline/QR consent links minted through `POST /api/v1/offline-consent/links`.
+  // The token resolves on the fiduciary's own dpdpbot origin; it is kept
+  // here so a host app that prints a QR code can find the link again
+  // without re-minting one.
+  offlineConsentLinks: defineTable({
+    linkId: v.string(),
+    token: v.string(),
+    noticeId: v.string(),
+    purpose: v.string(),
+    label: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index('by_linkId', ['linkId']),
+
   // Idempotency guard for inbound dpdpbot webhooks. dpdpbot's webhook
   // envelope ({eventType, organizationId, payload, timestamp} - see
   // convex/webhooks.ts's postSignedWebhookPayload) has no event id, so

@@ -32,6 +32,22 @@ describe('DpdpGuard', () => {
         upsert: vi.fn(),
         revoke: vi.fn(),
       },
+      consentGate: {
+        verify: vi.fn(),
+      },
+      partner: {
+        retentionDue: vi.fn(),
+        breaches: vi.fn(),
+        crossBorderTransfers: vi.fn(),
+      },
+      offline: {
+        createConsentLink: vi.fn(),
+        listConsentLinks: vi.fn(),
+        syncCaptures: vi.fn(),
+        getCapture: vi.fn(),
+        posRequest: vi.fn(),
+        ivrArtifact: vi.fn(),
+      },
     };
 
     mockMutationCtx = {
@@ -216,6 +232,132 @@ describe('DpdpGuard', () => {
 
       expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.nominations.revoke, {
         externalId,
+      });
+    });
+  });
+
+  describe('verifyConsent', () => {
+    it('should call consentGate.verify action with consentId', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.verifyConsent(mockActionCtx, 'consent-1');
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.consentGate.verify, {
+        consentId: 'consent-1',
+      });
+    });
+
+    it('should be an action, not a query - a gate decision is never cached', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.verifyConsent(mockActionCtx, 'consent-1');
+
+      expect(mockActionCtx.runAction).toHaveBeenCalled();
+      expect((mockQueryCtx as any).runQuery).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('partner reads', () => {
+    it('should call partner.retentionDue action', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listDueRetentions(mockActionCtx);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.partner.retentionDue, {});
+    });
+
+    it('should call partner.breaches action', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listBreaches(mockActionCtx);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.partner.breaches, {});
+    });
+
+    it('should call partner.crossBorderTransfers action', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listCrossBorderTransfers(mockActionCtx);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(
+        mockComponent.partner.crossBorderTransfers,
+        {}
+      );
+    });
+  });
+
+  describe('offline capture', () => {
+    it('should call offline.createConsentLink action with the link request', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+      const args = {
+        noticeId: 'notice-1',
+        purpose: 'Account opening',
+        dataTypes: ['email'],
+        label: 'Counter 3',
+      };
+
+      await dpdp.createOfflineConsentLink(mockActionCtx, args);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(
+        mockComponent.offline.createConsentLink,
+        args
+      );
+    });
+
+    it('should call offline.listConsentLinks query', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listOfflineConsentLinks(mockQueryCtx);
+
+      expect(mockQueryCtx.runQuery).toHaveBeenCalledWith(
+        mockComponent.offline.listConsentLinks,
+        {}
+      );
+    });
+
+    it('should call offline.syncCaptures action with the session batch', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+      const sessions = [{ clientSessionId: 'sess-1' }] as any;
+
+      await dpdp.syncOfflineCaptures(mockActionCtx, sessions);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.offline.syncCaptures, {
+        sessions,
+      });
+    });
+
+    it('should call offline.getCapture query with clientSessionId', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.getOfflineCapture(mockQueryCtx, 'sess-1');
+
+      expect(mockQueryCtx.runQuery).toHaveBeenCalledWith(mockComponent.offline.getCapture, {
+        clientSessionId: 'sess-1',
+      });
+    });
+
+    it('should call offline.posRequest action with the till request', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+      const args = {
+        noticeId: 'notice-1',
+        purpose: 'Loyalty',
+        dataTypes: ['phone'],
+        phone: '+91 90000 00000',
+      };
+
+      await dpdp.createPosConsentRequest(mockActionCtx, args);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.offline.posRequest, args);
+    });
+
+    it('should call offline.ivrArtifact action with the artefact', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+      const artifact = { partnerCallId: 'call-1' } as any;
+
+      await dpdp.recordIvrConsentArtifact(mockActionCtx, artifact);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.offline.ivrArtifact, {
+        artifact,
       });
     });
   });
