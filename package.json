@@ -1,6 +1,6 @@
 {
   "name": "@dpdpguard/convex",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Convex Component for dpdpbot (DPDP Guard) - native Convex integration over the dpdpbot /api/v1 contract",
   "license": "Apache-2.0",
   "type": "module",
@@ -41,7 +41,7 @@
     "convex": "^1.43.0"
   },
   "dependencies": {
-    "@dpdpguard/contract": "^1.4.0"
+    "@dpdpguard/contract": "^1.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

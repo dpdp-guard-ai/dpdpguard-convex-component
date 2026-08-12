@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-12
+
+### Changed
+
+- **`@dpdpguard/contract` ^1.4.0 → ^1.5.0** (OpenAPI 2.7.0 → 2.8.0).
+  `scripts/codegen.mjs` regenerated `src/component/generated/api-types.ts`
+  against the newer spec on install; `npm run typecheck`, `npm run build`,
+  and the full test suite (13 files / 76 tests) all pass unchanged against
+  it.
+
+### Notes
+
+- **Why minor, not patch.** The 1.4.0 → 1.5.0 contract diff is two things,
+  not one:
+  1. Two new read-only Consent Gate observability routes (`GET
+     /api/v1/consent/gate/decisions`, `GET /api/v1/consent/gate/alerts`)
+     and their two new schemas (`ConsentGateDecision`,
+     `ConsentGateBypassAlert`) — an actual, if additive, shape change to the
+     OpenAPI spec (classed `minor` under ADR-002 D4: "New endpoint |
+     minor | additive").
+  2. A documentation-only addition to `conformance/audit-hash-spec.md`
+     (commit `f5f941c`, "record the audit-hash-spec key-versions section"),
+     which adds prose about the existing key registry with no change to
+     `conformance/audit-hash-vectors.json`, `capture-artifact-vectors.json`,
+     or the `v1` canonicalization/algorithm — classed `patch` under D4 on
+     its own, and confirmed not to trip ADR-002 D5's DPO-sign-off gate
+     (D5 fires on a change to canonicalization or hash algorithm; neither
+     changed).
+  Because the release as a whole carries an actual (additive) shape change —
+  not *only* documentation — this repo bumps **minor** (0.3.1 → 0.4.0) to
+  match, per the guidance that a docs-only contract change stays patch and
+  any real shape change goes minor.
+- The two new observability routes are **not** bound to this component's
+  client surface yet — this sync only updates the contract dependency and
+  regenerates types. Wiring `dpdp.listConsentGateDecisions()` /
+  `dpdp.listConsentGateAlerts()` is left for a follow-up change; see "Known
+  gaps" in README.md.
+- No audit-hash canonicalization or `ConsentRecord` shape changes; no DPO
+  sign-off applies to this sync (ADR-002 D5).
+
 ## [0.3.1] - 2026-08-11
 
 ### Fixed
