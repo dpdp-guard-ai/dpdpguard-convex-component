@@ -13,6 +13,15 @@ import { fileURLToPath } from "node:url";
  * @dpdpguard/contract, or via `npm run codegen`.
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+// When this package is installed as a dependency, only `dist` is published —
+// `src` doesn't exist in the installed copy, so codegen has nothing to do.
+// Running this only makes sense inside the dpdpguard-convex-component repo
+// itself (local dev, or `npm run build`/`test` there).
+if (!existsSync(join(repoRoot, "src"))) {
+	process.exit(0);
+}
+
 const specPath = join(
 	repoRoot,
 	"node_modules",
