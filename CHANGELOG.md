@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-08-28
+
+### Fixed
+
+- **`npx convex deploy`/`convex dev` push failures for every host app with
+  `@dpdpguard/convex` installed.** Two packaging bugs, both present since
+  at least 0.4.1:
+  1. The openapi-typescript codegen output was named
+     `generated/api-types.ts` (compiling to `api-types.js`), and a hyphen
+     is not a legal Convex module path character. Any push that bundled
+     `dist/component/generated/api-types.js` failed at
+     `evaluate_push` with `InvalidConfig`. Renamed the generated file (and
+     `scripts/codegen.mjs`'s output path) to `generated/apiTypes.ts`.
+  2. `src/component/http.ts` — a `registerRoutes()` factory meant to be
+     imported by the *host app's own* `convex/http.ts`, not the
+     component's router — collided with Convex's special-cased `http.js`
+     convention at the root of the component's own function directory,
+     which requires a default-exported `Router`. Pushes failed with
+     `` `convex/http.js` must have a default export of a Router ``.
+     Renamed to `src/component/registerDpdpRoutes.ts` (dist:
+     `registerDpdpRoutes.js`). The public `@dpdpguard/convex/http` import
+     subpath is unchanged — only the underlying `dist/component/` filename
+     moved, updated in the package `exports` map.
+
 ## [0.4.0] - 2026-08-12
 
 ### Changed

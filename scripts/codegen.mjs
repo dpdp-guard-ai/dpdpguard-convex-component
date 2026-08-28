@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Regenerates src/component/generated/api-types.ts from the openapi/v1.yaml
+ * Regenerates src/component/generated/apiTypes.ts from the openapi/v1.yaml
  * shipped inside the installed @dpdpguard/contract package (not a copy —
  * always the exact file that version of the contract published). Mirrors
  * dpdpguard-server-node-sdk/scripts/codegen.mjs so both SDKs derive from the
@@ -35,7 +35,7 @@ const outPath = join(
 	"src",
 	"component",
 	"generated",
-	"api-types.ts",
+	"apiTypes.ts",
 );
 
 if (!existsSync(specPath)) {

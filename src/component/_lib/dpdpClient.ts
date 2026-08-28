@@ -1,4 +1,4 @@
-import type { components, operations } from '../generated/api-types.js';
+import type { components, operations } from '../generated/apiTypes.js';
 import { DpdpGuardApiError } from './errorCatalog.js';
 
 export type OrgSummary = components['schemas']['OrgSummary'];
