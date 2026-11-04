@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-04
+
+### Changed
+
+- **`convex` ^1.43.0 → ^1.49.0** (peer and dev dependency) and
+  **`convex-test` ^0.0.54 → ^0.0.67**. Host apps must be on `convex`
+  1.49.0 or newer — the component now uses validator APIs that only exist
+  from 1.44/1.46 on (below), and 1.46 changed TypeScript compatibility
+  between validators from different `convex` versions, so the host app and
+  the component should resolve the same `convex`.
+- **Node.js 22+ required** (`engines.node: ">=22"`). Convex 1.49 dropped
+  Node 20; the `Verify` CI matrix now runs Node 22 and 24 only.
+- Validators use the chained `.optional()` form added in convex 1.46
+  (`v.string().optional()` instead of `v.optional(v.string())`). No change
+  to the stored schema or accepted arguments.
+- Refreshed `package-lock.json` so the `Quality` workflow's
+  `npm audit --audit-level=high` passes again (dev-only transitive
+  advisories in `brace-expansion`, `source-map-js`, `vite` and
+  `@vitest/mocker`; nothing in the published `dist`).
+
+### Added
+
+- **`returns` validators on the DB-backed queries**, built with
+  `schema.doc(tableName)` (convex 1.44) so they include `_id` and
+  `_creationTime` without re-declaring the table's fields: `dsr.list`,
+  `grievances.list`, `nominations.get`, `offline.getCapture`,
+  `offline.listConsentLinks`, `config.isConfigured` (`v.boolean()`) and
+  the internal `config.get`. Return shapes are unchanged; a query that
+  ever returns something other than its table's documents now fails
+  loudly instead of handing the host app an unexpected shape.
+
 ## [0.4.3] - 2026-08-28
 
 ### Fixed

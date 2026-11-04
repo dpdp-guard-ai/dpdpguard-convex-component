@@ -1,10 +1,12 @@
 import { v } from 'convex/values';
+import schema from './schema.js';
 import { action, query, internalMutation } from './_generated/server.js';
 import { internal } from './_generated/api.js';
 import { dpdpClient } from './_lib/dpdpClient.js';
 
 export const list = query({
   args: { externalId: v.string() },
+  returns: v.array(schema.doc('dsrRequests')),
   handler: async (ctx, { externalId }) => {
     return await ctx.db
       .query('dsrRequests')
@@ -47,8 +49,8 @@ export const create = action({
       v.literal('correction'),
       v.literal('erasure')
     ),
-    details: v.optional(v.string()),
-    idempotencyKey: v.optional(v.string()),
+    details: v.string().optional(),
+    idempotencyKey: v.string().optional(),
   },
   handler: async (ctx, args) => {
     const config = await ctx.runQuery(internal.config.get);

@@ -74,11 +74,11 @@ export default defineSchema({
   offlineCaptures: defineTable({
     clientSessionId: v.string(),
     status: v.string(),
-    consentId: v.optional(v.string()),
-    reason: v.optional(v.string()),
+    consentId: v.string().optional(),
+    reason: v.string().optional(),
     // The receipt that makes the consent withdrawable - present only for a
     // verified session. Handed to the principal, never re-derived.
-    withdrawalToken: v.optional(v.string()),
+    withdrawalToken: v.string().optional(),
     syncedAt: v.number(),
   }).index('by_clientSessionId', ['clientSessionId']),
 
@@ -91,7 +91,7 @@ export default defineSchema({
     token: v.string(),
     noticeId: v.string(),
     purpose: v.string(),
-    label: v.optional(v.string()),
+    label: v.string().optional(),
     createdAt: v.number(),
   })
     .index('by_linkId', ['linkId'])

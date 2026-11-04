@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import schema from './schema.js';
 import { mutation, query, internalQuery } from './_generated/server.js';
 
 // Called once by the host app to configure how this component reaches
@@ -23,6 +24,7 @@ export const setup = mutation({
 
 export const get = internalQuery({
   args: {},
+  returns: schema.doc('config'),
   handler: async (ctx) => {
     const config = await ctx.db.query('config').first();
     if (!config) {
@@ -36,6 +38,7 @@ export const get = internalQuery({
 
 export const isConfigured = query({
   args: {},
+  returns: v.boolean(),
   handler: async (ctx) => {
     const config = await ctx.db.query('config').first();
     return config !== null;
