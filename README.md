@@ -50,6 +50,8 @@ example/                           # minimal host app used to run `npx convex de
 
 ## Using it in a host app
 
+Requires `convex` **1.49.0 or newer** (peer dependency) and Node.js **22 or newer** — Convex 1.49 dropped Node 20.
+
 ```ts
 // convex/convex.config.ts
 import { defineApp } from "convex/server";

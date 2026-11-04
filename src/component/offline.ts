@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import schema from './schema.js';
 import { action, query, internalMutation } from './_generated/server.js';
 import { internal } from './_generated/api.js';
 import { dpdpClient } from './_lib/dpdpClient.js';
@@ -29,9 +30,9 @@ export const _recordCaptureResults = internalMutation({
       v.object({
         clientSessionId: v.string(),
         status: v.string(),
-        consentId: v.optional(v.string()),
-        reason: v.optional(v.string()),
-        withdrawalToken: v.optional(v.string()),
+        consentId: v.string().optional(),
+        reason: v.string().optional(),
+        withdrawalToken: v.string().optional(),
       })
     ),
   },
@@ -84,6 +85,7 @@ export const syncCaptures = action({
 /** The recorded outcome of one previously synced session, or null if this component never synced it. */
 export const getCapture = query({
   args: { clientSessionId: v.string() },
+  returns: v.union(schema.doc('offlineCaptures'), v.null()),
   handler: async (ctx, { clientSessionId }) => {
     return await ctx.db
       .query('offlineCaptures')
@@ -98,7 +100,7 @@ export const _recordLink = internalMutation({
     token: v.string(),
     noticeId: v.string(),
     purpose: v.string(),
-    label: v.optional(v.string()),
+    label: v.string().optional(),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert('offlineConsentLinks', { ...args, createdAt: Date.now() });
@@ -110,7 +112,7 @@ export const createConsentLink = action({
     noticeId: v.string(),
     purpose: v.string(),
     dataTypes: v.array(v.string()),
-    label: v.optional(v.string()),
+    label: v.string().optional(),
   },
   handler: async (ctx, args) => {
     const config = await ctx.runQuery(internal.config.get);
@@ -139,7 +141,8 @@ const CONSENT_LINK_PAGE_MAX = 500;
  * looking for is almost always one they just minted.
  */
 export const listConsentLinks = query({
-  args: { limit: v.optional(v.number()) },
+  args: { limit: v.number().optional() },
+  returns: v.array(schema.doc('offlineConsentLinks')),
   handler: async (ctx, { limit }) => {
     const take = Math.min(Math.max(limit ?? CONSENT_LINK_PAGE_DEFAULT, 1), CONSENT_LINK_PAGE_MAX);
     return await ctx.db

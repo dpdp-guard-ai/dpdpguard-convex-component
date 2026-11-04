@@ -1,10 +1,12 @@
 import { v } from 'convex/values';
+import schema from './schema.js';
 import { action, query, internalMutation } from './_generated/server.js';
 import { internal } from './_generated/api.js';
 import { dpdpClient } from './_lib/dpdpClient.js';
 
 export const get = query({
   args: { externalId: v.string() },
+  returns: v.union(schema.doc('nominations'), v.null()),
   handler: async (ctx, { externalId }) => {
     return await ctx.db
       .query('nominations')

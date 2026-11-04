@@ -25,7 +25,7 @@ const RECONCILE_BATCH_MAX = 500;
  * this stays a deterministic read.
  */
 export const _listLinked = internalQuery({
-  args: { now: v.number(), limit: v.optional(v.number()) },
+  args: { now: v.number(), limit: v.number().optional() },
   handler: async (ctx, { now, limit }) => {
     const links = await ctx.db
       .query('consentLinks')
