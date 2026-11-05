@@ -4,7 +4,7 @@ A [Convex Component](https://www.convex.dev/components) for [dpdpbot](https://gi
 
 ## Status
 
-Wired to dpdpbot's real `/api/v1` contract (paths, auth model, and generated types come from the installed `@dpdpguard/contract` package — see "Building" below), currently tracking contract `1.5.0` / OpenAPI `2.8.0`. The brokered-principal methods mirror `@dpdpguard/server`'s method names 1:1 so migrating from the Node SDK is close to a search-and-replace; the service-key surface (Consent Gate, compliance registers, offline capture) is described under "Two credentials, two surfaces" below.
+Wired to dpdpbot's real `/api/v1` contract (paths, auth model, and generated types come from the installed `@dpdpguard/contract` package — see "Building" below), currently tracking contract `1.9.0` / OpenAPI `2.23.1`. The brokered-principal methods mirror `@dpdpguard/server`'s method names 1:1 so migrating from the Node SDK is close to a search-and-replace; the service-key surface (Consent Gate, compliance registers, offline capture) is described under "Two credentials, two surfaces" below.
 
 ## Why this exists instead of just using the Node SDK
 
