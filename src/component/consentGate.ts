@@ -31,3 +31,33 @@ export const verify = action({
     return await dpdpClient.verifyConsent(config, consentId);
   },
 });
+
+/**
+ * `GET /api/v1/consent/gate/decisions` (contract 1.5.0) - read back the
+ * gate's append-only decision log for this org, newest first, e.g. to feed a
+ * SIEM. dpdpbot defaults `limit` to 50 and clamps it to 200.
+ *
+ * Pass-through like `verify`: the log lives on dpdpbot and only grows, so a
+ * local copy would be a second, staler audit trail.
+ */
+export const decisions = action({
+  args: { limit: v.number().optional() },
+  handler: async (ctx, { limit }) => {
+    const config = await ctx.runQuery(internal.config.get);
+    return await dpdpClient.listConsentGateDecisions(config, limit);
+  },
+});
+
+/**
+ * `GET /api/v1/consent/gate/alerts` (contract 1.5.0) - consents denied
+ * `denyThreshold` or more times inside the rolling `windowMs`, i.e. an
+ * integration that keeps asking (or keeps processing) after being told to
+ * stop. Both constants come back on every response, even an empty one.
+ */
+export const alerts = action({
+  args: {},
+  handler: async (ctx) => {
+    const config = await ctx.runQuery(internal.config.get);
+    return await dpdpClient.listConsentGateBypassAlerts(config);
+  },
+});

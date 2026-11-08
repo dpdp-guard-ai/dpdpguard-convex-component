@@ -81,6 +81,51 @@ describe('component/partner', () => {
     expect(result.transfers[0].legalBasis).toBe('consent');
   });
 
+  it('looks up consent status by email with the service key', async () => {
+    const t = await configured();
+    const spy = vi.spyOn(dpdpClient, 'getConsentStatus').mockResolvedValueOnce({
+      identifier: 'a@example.com',
+      identifierType: 'email',
+      found: true,
+      purposes: [
+        {
+          purposeKey: 'newsletter',
+          category: 'non_essential',
+          status: 'opt_out',
+          withdrawnAt: 1_700_000_000_000,
+          standardPurpose: 'dpdp_reserved.marketing',
+        },
+      ],
+    });
+
+    const result: any = await t.action('partner:consentStatus' as any, {
+      email: 'a@example.com',
+    });
+
+    expect(result.found).toBe(true);
+    expect(result.purposes[0].status).toBe('opt_out');
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: 'api-key-123' }),
+      'a@example.com'
+    );
+  });
+
+  it('passes found: false through for an email that is not a customer of record', async () => {
+    const t = await configured();
+    vi.spyOn(dpdpClient, 'getConsentStatus').mockResolvedValueOnce({
+      identifier: 'nobody@example.com',
+      identifierType: 'email',
+      found: false,
+      purposes: [],
+    });
+
+    const result: any = await t.action('partner:consentStatus' as any, {
+      email: 'nobody@example.com',
+    });
+
+    expect(result.found).toBe(false);
+  });
+
   it('surfaces a flag-off route as NOT_FOUND rather than an empty register', async () => {
     const t = await configured();
     vi.spyOn(dpdpClient, 'listBreaches').mockRejectedValueOnce(
