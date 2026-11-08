@@ -1,3 +1,4 @@
+import { v } from 'convex/values';
 import { action } from './_generated/server.js';
 import { internal } from './_generated/api.js';
 import { dpdpClient } from './_lib/dpdpClient.js';
@@ -44,5 +45,23 @@ export const crossBorderTransfers = action({
   handler: async (ctx) => {
     const config = await ctx.runQuery(internal.config.get);
     return await dpdpClient.listCrossBorderTransfers(config);
+  },
+});
+
+/**
+ * `GET /api/v1/consent-status?email=` (added to the contract between 1.5.0 and 1.9.0) - this org's current
+ * per-purpose consent grants for an email address, for gating a send in real
+ * time when the host app knows only the email (not a dpdpbot consent id or a
+ * brokered principal). `found: false` means "not a customer of record", which
+ * is different from `found: true` with every purpose opted out.
+ *
+ * Not cached: like the Consent Gate, the answer is only worth anything if it
+ * reflects a withdrawal made a moment ago.
+ */
+export const consentStatus = action({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const config = await ctx.runQuery(internal.config.get);
+    return await dpdpClient.getConsentStatus(config, email);
   },
 });

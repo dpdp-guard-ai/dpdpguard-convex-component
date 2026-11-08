@@ -34,11 +34,18 @@ describe('DpdpGuard', () => {
       },
       consentGate: {
         verify: vi.fn(),
+        decisions: vi.fn(),
+        alerts: vi.fn(),
       },
       partner: {
         retentionDue: vi.fn(),
         breaches: vi.fn(),
         crossBorderTransfers: vi.fn(),
+        consentStatus: vi.fn(),
+      },
+      withdrawals: {
+        suppressionList: vi.fn(),
+        propagationStatus: vi.fn(),
       },
       offline: {
         createConsentLink: vi.fn(),
@@ -257,7 +264,80 @@ describe('DpdpGuard', () => {
     });
   });
 
+  describe('consent gate observability', () => {
+    it('should call consentGate.decisions with no limit by default', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listConsentGateDecisions(mockActionCtx);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.consentGate.decisions, {});
+    });
+
+    it('should forward an explicit limit to consentGate.decisions', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listConsentGateDecisions(mockActionCtx, { limit: 10 });
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.consentGate.decisions, {
+        limit: 10,
+      });
+    });
+
+    it('should call consentGate.alerts action', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listConsentGateAlerts(mockActionCtx);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.consentGate.alerts, {});
+    });
+  });
+
+  describe('withdrawal propagation', () => {
+    it('should call withdrawals.suppressionList with no cursor by default', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listSuppressionList(mockActionCtx);
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(
+        mockComponent.withdrawals.suppressionList,
+        {}
+      );
+    });
+
+    it('should forward the since cursor to withdrawals.suppressionList', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.listSuppressionList(mockActionCtx, { since: 1_700_000_000_000 });
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(
+        mockComponent.withdrawals.suppressionList,
+        { since: 1_700_000_000_000 }
+      );
+    });
+
+    it('should call withdrawals.propagationStatus with the suppressionId', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.getWithdrawalPropagationStatus(mockActionCtx, 'supp-1');
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(
+        mockComponent.withdrawals.propagationStatus,
+        { suppressionId: 'supp-1' }
+      );
+    });
+  });
+
   describe('partner reads', () => {
+    it('should call partner.consentStatus action with the email', async () => {
+      const dpdp = new DpdpGuard(mockComponent);
+
+      await dpdp.getConsentStatus(mockActionCtx, 'a@example.com');
+
+      expect(mockActionCtx.runAction).toHaveBeenCalledWith(mockComponent.partner.consentStatus, {
+        email: 'a@example.com',
+      });
+    });
+
     it('should call partner.retentionDue action', async () => {
       const dpdp = new DpdpGuard(mockComponent);
 

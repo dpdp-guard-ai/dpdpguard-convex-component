@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-08
+
+### Added
+
+Five service-key read routes from `@dpdpguard/contract` 1.9.0, bound as
+pass-through actions (nothing cached in component tables) on the existing
+`apiKey` credential — no new configuration needed:
+
+- **`dpdp.listConsentGateDecisions(ctx, { limit? })`** →
+  `consentGate.decisions` → `GET /api/v1/consent/gate/decisions`. The gate's
+  append-only decision log, newest first; dpdpbot defaults `limit` to 50 and
+  clamps it to 200.
+- **`dpdp.listConsentGateAlerts(ctx)`** → `consentGate.alerts` →
+  `GET /api/v1/consent/gate/alerts`. Bypass-attempt candidates, with the
+  `windowMs`/`denyThreshold` they were measured against.
+- **`dpdp.getConsentStatus(ctx, email)`** → `partner.consentStatus` →
+  `GET /api/v1/consent-status`. Per-purpose consent for an email address;
+  `found: false` means "not a customer of record".
+- **`dpdp.listSuppressionList(ctx, { since? })`** →
+  `withdrawals.suppressionList` → `GET /api/v1/suppression-list`.
+  Cursor-paged by `suppressedAt`; pass `nextCursor` back as `since`.
+- **`dpdp.getWithdrawalPropagationStatus(ctx, suppressionId)`** →
+  `withdrawals.propagationStatus` →
+  `GET /api/v1/withdrawals/{suppressionId}/propagations`.
+- Exported response types: `ConsentGateDecisionList`,
+  `ConsentGateBypassAlertList`, `ConsentStatus`, `SuppressionList`,
+  `WithdrawalPropagationStatus` — all derived from the contract's
+  `operations`, so a reshaping contract bump is a compile error.
+- New module `src/component/withdrawals.ts`, plus wire-level tests
+  (`_lib/dpdpClient.test.ts`) for URL building, query/path encoding and
+  service-key auth on the new routes.
+
+### Notes
+
+- **Why minor.** New public API, purely additive: no schema, argument or
+  return-shape changes to anything that already existed.
+- Still unwrapped (see README "Known gaps"): processor-side write-backs,
+  SMS withdraw, consent-portability manifest, discovery manifest, and the
+  Consent Observatory routes. `/api/v1/staff/*` remains out of scope (staff
+  session auth).
+
 ## [0.5.0] - 2026-11-05
 
 ### Changed

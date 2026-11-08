@@ -31,6 +31,11 @@ export type CrossBorderTransferList = JsonResponse<'listCrossBorderTransfers', 2
 export type ConsentGateDecision = JsonResponse<'verifyConsentGate', 200>;
 export type PosConsentRequest = JsonResponse<'createPosConsentRequest', 201>;
 export type IvrConsentArtifactReceipt = JsonResponse<'recordIvrConsentArtifact', 201>;
+export type ConsentGateDecisionList = JsonResponse<'listConsentGateDecisions', 200>;
+export type ConsentGateBypassAlertList = JsonResponse<'listConsentGateBypassAlerts', 200>;
+export type SuppressionList = JsonResponse<'listSuppressionList', 200>;
+export type WithdrawalPropagationStatus = JsonResponse<'getWithdrawalPropagationStatus', 200>;
+export type ConsentStatus = JsonResponse<'getConsentStatus', 200>;
 export type PosConsentRequestInput =
   operations['createPosConsentRequest']['requestBody']['content']['application/json'];
 
@@ -159,6 +164,59 @@ export const dpdpClient = {
       body: { consentId },
       auth: 'apiKey',
     }),
+
+  // Read-back of the gate's own append-only decision log (contract 1.5.0),
+  // newest first. dpdpbot defaults `limit` to 50 and clamps it to 200; a
+  // non-positive or non-integer limit is a 400 there, not silently fixed here.
+  listConsentGateDecisions: (config: DpdpConfig, limit?: number) =>
+    request<ConsentGateDecisionList>(
+      config,
+      'GET',
+      `/api/v1/consent/gate/decisions${limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : ''}`,
+      { auth: 'apiKey' }
+    ),
+
+  // Consents denied `denyThreshold`+ times inside `windowMs` (contract 1.5.0).
+  // Both constants are echoed on every response, including an empty one.
+  listConsentGateBypassAlerts: (config: DpdpConfig) =>
+    request<ConsentGateBypassAlertList>(config, 'GET', '/api/v1/consent/gate/alerts', {
+      auth: 'apiKey',
+    }),
+
+  // --- Withdrawal propagation + suppression (contract 1.5.0 -> 1.9.0) ---
+
+  // Cursor-by-`suppressedAt`: pass the previous response's `nextCursor` back
+  // as `since`; `nextCursor: null` means nothing was truncated. The webhook
+  // fallback sweep for a missed `consent.withdrawn` delivery.
+  listSuppressionList: (config: DpdpConfig, since?: number) =>
+    request<SuppressionList>(
+      config,
+      'GET',
+      `/api/v1/suppression-list${since !== undefined ? `?since=${encodeURIComponent(String(since))}` : ''}`,
+      { auth: 'apiKey' }
+    ),
+
+  // "N of M destinations confirmed" for one withdrawal. 404s (NOT_FOUND) when
+  // the suppression belongs to another organization.
+  getWithdrawalPropagationStatus: (config: DpdpConfig, suppressionId: string) =>
+    request<WithdrawalPropagationStatus>(
+      config,
+      'GET',
+      `/api/v1/withdrawals/${encodeURIComponent(suppressionId)}/propagations`,
+      { auth: 'apiKey' }
+    ),
+
+  // Resolve an email to this org's current per-purpose consent grants.
+  // `found: false` (not a 404) means "not a customer of record", distinct
+  // from `found: true` with no active purposes. The email travels in the
+  // query string because that is where the contract puts it.
+  getConsentStatus: (config: DpdpConfig, email: string) =>
+    request<ConsentStatus>(
+      config,
+      'GET',
+      `/api/v1/consent-status?${new URLSearchParams({ email }).toString()}`,
+      { auth: 'apiKey' }
+    ),
 
   // --- Offline / physical capture (contract 1.3.0 + 1.4.0) ---
 

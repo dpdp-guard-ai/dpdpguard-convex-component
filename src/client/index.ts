@@ -17,6 +17,11 @@ export type {
   DueRetentionList,
   BreachRegisterList,
   CrossBorderTransferList,
+  ConsentGateDecisionList,
+  ConsentGateBypassAlertList,
+  SuppressionList,
+  WithdrawalPropagationStatus,
+  ConsentStatus,
 } from '../component/_lib/dpdpClient.js';
 
 // Mirrors @dpdpguard/server's DpdpGuardClient method names 1:1 so porting
@@ -105,6 +110,53 @@ export class DpdpGuard {
    */
   verifyConsent(ctx: GenericActionCtx<any>, consentId: string) {
     return ctx.runAction(this.component.consentGate.verify, { consentId });
+  }
+
+  /**
+   * Read back the gate's own decision log for this org, newest first (e.g. to
+   * feed a SIEM). dpdpbot defaults `limit` to 50 and clamps it to 200.
+   */
+  listConsentGateDecisions(ctx: GenericActionCtx<any>, opts?: { limit?: number }) {
+    return ctx.runAction(this.component.consentGate.decisions, {
+      ...(opts?.limit !== undefined ? { limit: opts.limit } : {}),
+    });
+  }
+
+  /**
+   * Consents denied repeatedly inside a rolling window - an integration that
+   * keeps asking, or keeps processing, after the gate said stop. `windowMs`
+   * and `denyThreshold` are returned alongside, even when `alerts` is empty.
+   */
+  listConsentGateAlerts(ctx: GenericActionCtx<any>) {
+    return ctx.runAction(this.component.consentGate.alerts, {});
+  }
+
+  /**
+   * This org's current per-purpose consent for an email address. `found:
+   * false` means "not a customer of record" - not the same as `found: true`
+   * with every purpose opted out. Read live, never cached.
+   */
+  getConsentStatus(ctx: GenericActionCtx<any>, email: string) {
+    return ctx.runAction(this.component.partner.consentStatus, { email });
+  }
+
+  // --- Withdrawal propagation: suppression list + fan-out status ---
+
+  /**
+   * Identifiers this org must stop marketing to, suppressed strictly after
+   * `since` (epoch ms; omit for the full list). Feed the response's
+   * `nextCursor` back as the next call's `since`; `null` means the pull is
+   * complete. The fallback sweep for a missed `consent.withdrawn` webhook.
+   */
+  listSuppressionList(ctx: GenericActionCtx<any>, opts?: { since?: number }) {
+    return ctx.runAction(this.component.withdrawals.suppressionList, {
+      ...(opts?.since !== undefined ? { since: opts.since } : {}),
+    });
+  }
+
+  /** "N of M destinations confirmed" for one withdrawal's suppression entry. */
+  getWithdrawalPropagationStatus(ctx: GenericActionCtx<any>, suppressionId: string) {
+    return ctx.runAction(this.component.withdrawals.propagationStatus, { suppressionId });
   }
 
   // --- Partner reads: the fiduciary's own registers, service-key authed ---

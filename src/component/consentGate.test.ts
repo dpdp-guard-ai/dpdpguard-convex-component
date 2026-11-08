@@ -91,4 +91,59 @@ describe('component/consentGate', () => {
       t.action('consentGate:verify' as any, { consentId: 'consent-elsewhere' })
     ).rejects.toThrow(/Consent record not found/);
   });
+
+  it('reads the decision log with the service key, forwarding limit', async () => {
+    const t = await configured();
+    const spy = vi.spyOn(dpdpClient, 'listConsentGateDecisions').mockResolvedValueOnce({
+      decisions: [
+        {
+          decisionId: 'dec-1',
+          consentId: 'consent-1',
+          apiKeyId: 'key-1',
+          decision: 'deny',
+          reason: 'consent_withdrawn',
+          decidedAt: 1_700_000_000_000,
+        },
+      ],
+    });
+
+    const result: any = await t.action('consentGate:decisions' as any, { limit: 25 });
+
+    expect(result.decisions[0].decisionId).toBe('dec-1');
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'api-key-123' }), 25);
+  });
+
+  it('leaves limit to dpdpbot when the caller omits it', async () => {
+    const t = await configured();
+    const spy = vi
+      .spyOn(dpdpClient, 'listConsentGateDecisions')
+      .mockResolvedValueOnce({ decisions: [] });
+
+    const result: any = await t.action('consentGate:decisions' as any, {});
+
+    expect(result.decisions).toEqual([]);
+    expect(spy).toHaveBeenCalledWith(expect.anything(), undefined);
+  });
+
+  it('returns bypass alerts together with the heuristic they were measured against', async () => {
+    const t = await configured();
+    vi.spyOn(dpdpClient, 'listConsentGateBypassAlerts').mockResolvedValueOnce({
+      alerts: [
+        {
+          consentId: 'consent-9',
+          denyCount: 6,
+          firstDeniedAt: 1_700_000_000_000,
+          lastDeniedAt: 1_700_000_060_000,
+        },
+      ],
+      windowMs: 3_600_000,
+      denyThreshold: 5,
+    });
+
+    const result: any = await t.action('consentGate:alerts' as any, {});
+
+    expect(result.alerts[0].denyCount).toBe(6);
+    expect(result.windowMs).toBe(3_600_000);
+    expect(result.denyThreshold).toBe(5);
+  });
 });

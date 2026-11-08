@@ -4,7 +4,7 @@ A [Convex Component](https://www.convex.dev/components) for [dpdpbot](https://gi
 
 ## Status
 
-Wired to dpdpbot's real `/api/v1` contract (paths, auth model, and generated types come from the installed `@dpdpguard/contract` package — see "Building" below), currently tracking contract `1.9.0` / OpenAPI `2.23.1`. The brokered-principal methods mirror `@dpdpguard/server`'s method names 1:1 so migrating from the Node SDK is close to a search-and-replace; the service-key surface (Consent Gate, compliance registers, offline capture) is described under "Two credentials, two surfaces" below.
+Wired to dpdpbot's real `/api/v1` contract (paths, auth model, and generated types come from the installed `@dpdpguard/contract` package — see "Building" below), currently tracking contract `1.9.0` / OpenAPI `2.23.1`. The brokered-principal methods mirror `@dpdpguard/server`'s method names 1:1 so migrating from the Node SDK is close to a search-and-replace; the service-key surface (Consent Gate, compliance registers, withdrawal propagation, offline capture) is described under "Two credentials, two surfaces" below.
 
 ## Why this exists instead of just using the Node SDK
 
@@ -32,8 +32,11 @@ src/
     dsr.ts                  # createDsrRequest, listDsrRequests, refresh
     grievances.ts            # createGrievance, listGrievances, refresh
     nominations.ts            # upsert/get/revoke
-    consentGate.ts             # verify() — stop-processing check, never cached
-    partner.ts                  # retention/breach/cross-border register reads
+    consentGate.ts             # verify() — stop-processing check, never cached;
+                                # decision log + bypass alert reads
+    partner.ts                  # retention/breach/cross-border register reads,
+                                # consent status by email
+    withdrawals.ts               # suppression list + withdrawal propagation status
     offline.ts                   # QR links, capture batch sync, POS + IVR
     reconcile.ts                  # cron-driven per-principal DSR/grievance poll
     webhooks.ts                    # httpAction handler + signature verification
@@ -126,6 +129,52 @@ record's current withdrawal state rather than from anything the caller
 remembers, so subscribing to it would defeat it. Treat a thrown
 `DpdpGuardApiError` as "do not process" — an unreachable gate is not consent.
 
+The gate's own audit trail is readable with the same key — e.g. to feed a
+SIEM or page on-call:
+
+```ts
+const { decisions } = await dpdp.listConsentGateDecisions(ctx, { limit: 100 }); // newest first; dpdpbot defaults 50, clamps 200
+const { alerts, windowMs, denyThreshold } = await dpdp.listConsentGateAlerts(ctx);
+// alerts: consents denied >= denyThreshold times within windowMs — an
+// integration that keeps asking (or keeps processing) after being told to stop
+```
+
+### Consent status by email
+
+```ts
+const status = await dpdp.getConsentStatus(ctx, "a@example.com"); // GET /api/v1/consent-status
+if (!status.found) { /* not a customer of record for this org */ }
+const marketing = status.purposes.find((p) => p.standardPurpose === "dpdp_reserved.marketing");
+const mayMarket = marketing?.status === "opt_in";
+```
+
+For a host app that knows only an email address — no dpdpbot consent id, no
+brokered principal. `found: false` is "not a customer of record", distinct
+from `found: true` with every purpose opted out. Read live, never cached. The
+email travels in the query string because that is where the contract puts it.
+
+### Withdrawal propagation
+
+```ts
+// fallback sweep for a missed consent.withdrawn webhook — keep your own cursor
+let since = lastCursor ?? 0;
+for (;;) {
+  const { entries, nextCursor } = await dpdp.listSuppressionList(ctx, { since });
+  for (const e of entries) { /* stop marketing to e.identifier (unless e.liftedAt) */ }
+  if (nextCursor === null) break;
+  since = nextCursor;
+}
+
+// "N of M destinations confirmed" for one withdrawal
+const { total, acknowledged, failed, entries } =
+  await dpdp.getWithdrawalPropagationStatus(ctx, suppressionId);
+```
+
+Both are pass-through: a stale local suppression list is exactly what keeps
+a withdrawn principal on a marketing send, so the component stores nothing
+and the host app owns the cursor. `getWithdrawalPropagationStatus` throws
+`NOT_FOUND` for a suppression that belongs to another organization.
+
 ### Compliance registers
 
 ```ts
@@ -187,7 +236,7 @@ npm run build       # re-runs codegen, then tsc
 - Only `notices` and (via the `reconcile.principals` cron) linked principals' DSR/grievance state are polled for reconciliation. Nomination changes made directly on dpdpbot's dashboard aren't reflected locally until the next time the host app calls `getNomination`/re-fetches — there's no nomination polling cron, since `GET /api/v1/nomination` only returns the caller's own single record and dpdpbot doesn't page/filter that endpoint the way DSR/grievance listing do.
 - Webhook signature verification expects `DPDPGUARD_WEBHOOK_SECRET` as a host app environment variable; there's no `config.setup()` field for it yet. The header name (`X-DPDP-Signature`) and HMAC-SHA256/hex algorithm are confirmed against dpdpbot's actual `convex/webhooks.ts`, but as noted above, the events it currently dispatches (`consent.given`/`consent.withdrawn`) don't carry enough information to update this component's per-principal cache tables — `webhooks.ts` currently just records that an event arrived, and does nothing with the payload yet.
 - Every call is tested against a mocked `dpdpClient`, never against a live dpdpbot deployment — the shapes those mocks return are typed from `@dpdpguard/contract`, so they can't drift from the wire contract, but nothing here exercises a real HTTP round trip.
-- `@dpdpguard/contract` 1.5.0 (now the installed/tracked version) adds two Consent Gate observability routes (`GET /api/v1/consent/gate/decisions` and `.../alerts`) that aren't bound to this component's client surface yet — the 0.4.0 sync only updated the contract dependency and regenerated types. Wiring `dpdp.listConsentGateDecisions()` / `dpdp.listConsentGateAlerts()` is left for a follow-up change.
+- Some service-key routes in contract 1.9.0 are still not wrapped: the processor-side write-backs (`POST /api/v1/withdrawals/{propagationId}/ack`, `POST /api/v1/consents/{consentId}/withdrawal-acknowledgement`, `POST /api/v1/dsr/{requestId}/processor-confirmation`), `POST /api/v1/offline/sms-withdraw`, `GET /api/v1/consent-portability/exports/{exportId}/manifest`, `POST /api/v1/discovery/manifest`, and the Consent Observatory routes. They need no new credential; they just haven't been needed by a host app yet.
 - The `/api/v1/staff/*` fiduciary/DPO surface is not wrapped at all. It authenticates with a staff login session rather than either credential this component holds, so it has no natural home here.
 - The `reconcile.principals` cron loops over every linked principal every 30 minutes with no batching/pagination — fine at small scale, but should be revisited (e.g. only reconcile principals with an open DSR/grievance) before use with a large user base.
 
